@@ -34,6 +34,7 @@ def run_single_candidate_unclean(
     save_report_dir: str = ".",
     csv_path: str = "lineage_scores.csv",
     k_prefix: int = 30,
+    k_bottom: int = 50,
     relation: str | None = None,
 ) -> None:
     """
@@ -65,9 +66,9 @@ def run_single_candidate_unclean(
             prompt_style=prompt_style,
             l_random_prefix=8,
             total_len=64,
-            k_bottom=50,
+            k_bottom=k_bottom,
             max_new_tokens=64,
-            save_json_path=None,  # 保持你原来内部逻辑（函数里会自己决定存哪里的话就留 None）
+            save_json_path="fingerprints_init.json",  # 保持你原来内部逻辑（函数里会自己决定存哪里的话就留 None）
         )
 
         if not pairs_path:
@@ -128,6 +129,12 @@ def main():
         help="每个 candidate 生成多少 fingerprint pair",
     )
     parser.add_argument(
+        "--k_bottom",
+        type=int,
+        default=50,
+        help="fingerprint 生成时随机前缀的 token 数量下限",
+    )
+    parser.add_argument(
         "--prompt_style",
         type=str,
         default="raw",
@@ -181,6 +188,7 @@ def main():
                     save_report_dir=args.save_report_dir,
                     csv_path=args.csv_path,
                     k_prefix=args.k_prefix,
+                    k_bottom=args.k_bottom,
                     relation=args.relation,
                 )
             except Exception as exc:
