@@ -201,7 +201,7 @@ def eval_one_base_model(
 
         for idx, fp in enumerate(fps):
             prompt_text = extract_prompt_from_fingerprint(fp)
-            # tokenize with suspect tokenizer
+            # Tokenize with suspect tokenizer
             inputs = suspect_tokenizer(
                 prompt_text,
                 return_tensors="pt",
@@ -217,7 +217,7 @@ def eval_one_base_model(
                     logits_processor=processors,
                 )[0]
 
-            # only count newly generated tokens (exclude prompt part)
+            # Only count newly generated tokens (exclude prompt part)
             gen_only_ids = output_ids[inputs["input_ids"].shape[1] :]
 
             if gen_only_ids.numel() == 0:
@@ -261,7 +261,7 @@ def append_result_csv(
     Append one base_model result row-by-row to the CSV.
 
     If the file does not exist, write the header first;
-    otherwise just append one row.
+    Otherwise, just append one row.
     """
     csv_path = Path(csv_path)
     csv_path.parent.mkdir(parents=True, exist_ok=True)

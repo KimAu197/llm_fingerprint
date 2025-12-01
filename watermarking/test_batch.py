@@ -1,11 +1,11 @@
 # fingerprint_tools.py
 # ------------------------------------------------------------
-# Minimal, tidy utilities for RoFL-style x' init + greedy y,
+# Minimal, tidy utilities for RoFL-style x' initialization + greedy y,
 # and black-box verification with simple metrics.
 # NO system prompt anywhere in this file.
 # You provide:
-#   - (base) model, tokenizer  —— 用于生成指纹 (x', y)
-#   - suspect_generate()        —— 被测模型的生成回调（HF 或 GGUF）
+#   - (base) model, tokenizer  —— used to generate fingerprints (x', y)
+#   - suspect_generate()        —— generation callback for the suspect model (HF or GGUF)
 # ------------------------------------------------------------
 from __future__ import annotations
 import os, time, json, random, difflib
@@ -76,9 +76,9 @@ def sample_fingerprint_prompt(
     k_bottom: int = 50,
 ) -> str:
     """
-    RoFL Step 1 (简化实现):
-      (1) 前 l 个 token 从 vocab(去掉 special) 均匀随机
-      (2) 之后每步从“概率最低的 k 个 token”里均匀取一个，直到 total_len
+        RoFL Step 1 (simplified implementation):
+            (1) The first l tokens are uniformly sampled from the vocab (excluding special tokens)
+            (2) Each subsequent step samples uniformly from the k lowest-probability tokens until total_len
     """
     model.eval()
     if device is None:
@@ -87,11 +87,11 @@ def sample_fingerprint_prompt(
     allowed = _build_allowed_token_set(tokenizer)
     allowed_t = torch.tensor(allowed, device=device)
 
-    # (1) 均匀随机前缀
+    # (1) Uniformly random prefix
     prefix_ids = random.choices(allowed, k=l_random_prefix)
     prompt_ids = torch.tensor(prefix_ids, dtype=torch.long, device=device).unsqueeze(0)
 
-    # (2) bottom-k 扩展
+    # (2) bottom-k extension
     while prompt_ids.shape[1] < total_len:
         logits = model(prompt_ids).logits[:, -1, :]
         probs  = F.softmax(logits, dim=-1)
@@ -100,7 +100,7 @@ def sample_fingerprint_prompt(
         if len(allowed) < tokenizer.vocab_size:
             mask = torch.ones_like(masked, dtype=torch.bool)
             mask[:, allowed_t] = False
-            masked[mask] = 1e9  # 不让不允许 token 落入 bottom-k
+            masked[mask] = 1e9  # Prevent disallowed tokens from being in the bottom-k
 
         _, sorted_idx = torch.sort(masked, dim=-1, descending=False)  # 概率升序
         k_eff = min(k_bottom, sorted_idx.shape[1])
@@ -121,7 +121,7 @@ def greedy_response_hf(
     max_new_tokens: int = 64,
 ) -> str:
     """
-    确定性生成（do_sample=False）。返回 continuation（不含输入）。
+    Deterministic generation (do_sample=False). Returns the continuation (excluding input).
     """
     model.eval()
     if device is None:
@@ -131,7 +131,7 @@ def greedy_response_hf(
     input_len = inputs["input_ids"].shape[1]
     out_ids = model.generate(
         **inputs,
-        do_sample=False,                 # 温度=0
+        do_sample=False,                 # temperature=0
         max_new_tokens=max_new_tokens,
         pad_token_id=tokenizer.eos_token_id,
         eos_token_id=tokenizer.eos_token_id,
@@ -142,8 +142,8 @@ def greedy_response_hf(
 
 def generate_fingerprints_batch(
     model,
-    model_name,# 已加载好的 base HF model
-    tokenizer,                   # 对应 tokenizer
+    model_name,# already loaded base HF model
+    tokenizer,                   # corresponding tokenizer
     num_pairs: int = 3,
     prompt_style: str = "oneshot",      # 'oneshot' | 'chatml' | 'raw'
     l_random_prefix: int = 8,
@@ -153,8 +153,8 @@ def generate_fingerprints_batch(
     save_json_path: Optional[str] = "fingerprints_init.json",
 ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
     """
-    生成 num_pairs 个 (x', y) 并（可选）保存。
-    不涉及任何 system 文本。
+    Generate num_pairs (x', y) pairs and optionally save them.
+    Does not involve any system text.
     """
     device = next(model.parameters()).device
     pairs: List[Dict[str, Any]] = []
@@ -316,18 +316,18 @@ def evaluate_fingerprints(
     use_timestamp_in_name: bool = False,   # 文件名是否带时间戳
 ):
     """
-    保存的 summary 只包含: fingerprint, base_y, suspect_y （逐样本列表）。
-    其他指标只打印，不写入文件。
+    The saved summary only contains: fingerprint, base_y, suspect_y (per-sample list).
+    Other metrics are only printed, not written to file.
     """
     # 1) load pairs
     with open(pairs_json_path, "r", encoding="utf-8") as f:
         pairs = json.load(f)
     print(f"[info] Loaded {len(pairs)} fingerprint pairs from {pairs_json_path}")
 
-    # 打印用指标（不保存）
+    # Metrics for printing (not saved)
     prefix_hits, sim_scores, sig_hits, sig_totals = [], [], [], []
 
-    # 读入 pairs 后（evaluate_fingerprints 里）：
+    # After loading pairs (in evaluate_fingerprints):
     style = pairs[0].get("prompt_style", "raw")
 
     if style == "raw":
@@ -336,18 +336,18 @@ def evaluate_fingerprints(
         stops = ["</s>", "<|im_end|>", "<|im_start|>user"]
     else:  # oneshot
         stops = ["</s>", "user:", "assistant:"]
-    # 最终要写入文件的极简列表
+    # Minimal list to be written to file
     minimal_records = []
 
     # 2) eval loop
     for idx, pair in enumerate(tqdm(pairs, desc=f"Evaluating on {suspect_label}")):
         x_prime = pair["x_prime"]              # fingerprint
-        base_y  = pair["y_response"]           # base model 的 y
-        # 优先使用生成 y 时精确的 full prompt（无 system/有 role，都按你生成时的格式）
+        base_y  = pair["y_response"]           # base model's y
+        # Prefer to use the exact full prompt used for generating y (no system/with role, always in your generation format)
         if "full_prompt_used" in pair:
             full_prompt_for_suspect = pair["full_prompt_used"]
         else:
-            # 兜底（无 system、最小 role）
+            # Fallback (no system, minimal role)
             full_prompt_for_suspect = f"user: {x_prime}\nassistant:"
 
         suspect_y = suspect_model.generate_answer(
@@ -356,20 +356,20 @@ def evaluate_fingerprints(
             stop_tokens=stops,
         )
 
-        # —— 只打印，不保存 ——
+        # —— Only print, do not save ——
         pm  = metric_prefix_match(base_y, suspect_y, min_len=min_prefix_len)
         sim = metric_lcs_ratio(base_y, suspect_y)
         h, tot = metric_signature_overlap(base_y, suspect_y, min_tok_len=sig_min_tok_len)
         prefix_hits.append(pm); sim_scores.append(sim); sig_hits.append(h); sig_totals.append(tot)
 
-        # —— 保存的极简条目 ——
+        # —— Minimal entry to be saved ——
         minimal_records.append({
             "fingerprint": x_prime,
             "base_y": base_y,
             "suspect_y": suspect_y,
         })
 
-    # 3) 打印整体指标（不写入文件）
+    # 3) Print overall metrics (not written to file)
     prefix_match_rate = float(np.mean(prefix_hits)) if prefix_hits else 0.0
     avg_edit_sim      = float(np.mean(sim_scores)) if sim_scores else 0.0
     sig_overlap_rate  = (
@@ -398,7 +398,7 @@ def evaluate_fingerprints(
         "records": minimal_records,
     }
 
-    # 4) 保存：仅极简列表
+    # 4) Save: only minimal list
     out_path = None
     if save_report_path:
         out_path = ts_path(save_report_path, model_name=model_name)
@@ -425,10 +425,10 @@ def evaluate_fingerprint_unclean(
         pairs = json.load(f)
     print(f"[info] Loaded {len(pairs)} fingerprint pairs from {pairs_json_path}")
 
-    # 打印用指标（不保存）
+    # Metrics for printing (not saved)
     prefix_hits, sim_scores, sig_hits, sig_totals = [], [], [], []
 
-    # 读入 pairs 后选择 stop tokens（与原版一致）
+    # After loading pairs, select stop tokens (same as original)
     style = pairs[0].get("prompt_style", "raw")
     if style == "raw":
         stops = ["</s>", "<|im_end|>"]
@@ -437,12 +437,12 @@ def evaluate_fingerprint_unclean(
     else:  # oneshot
         stops = ["</s>", "user:", "assistant:"]
 
-    # 最终要写入文件的极简列表
+    # Minimal list to be written to file
     minimal_records = []
 
     for idx, pair in enumerate(tqdm(pairs, desc=f"[UNCLEAN] Evaluating on {suspect_label}")):
         x_prime = pair["x_prime"]            # fingerprint
-        base_y  = pair["y_response"]         # base model 的 y
+        base_y  = pair["y_response"]         # base model's y
 
         if "full_prompt_used" in pair:
             full_prompt_for_suspect = pair["full_prompt_used"]
@@ -455,20 +455,20 @@ def evaluate_fingerprint_unclean(
             stop_tokens=stops,
         )
 
-        # —— 只打印，不保存（全部 raw 版本）——
+        # —— Only print, do not save (all raw version) ——
         pm  = metric_prefix_match_raw(base_y, suspect_y, min_len=min_prefix_len)
         sim = metric_lcs_ratio_raw(base_y, suspect_y)
         h, tot = metric_signature_overlap_raw(base_y, suspect_y, min_tok_len=sig_min_tok_len)
         prefix_hits.append(pm); sim_scores.append(sim); sig_hits.append(h); sig_totals.append(tot)
 
-        # —— 保存的极简条目（与原版一致）——
+        # —— Minimal entry to be saved (same as original) ——
         minimal_records.append({
             "fingerprint": x_prime,
             "base_y": base_y,
             "suspect_y": suspect_y,
         })
 
-    # 3) 打印整体指标（不写入文件）
+    # 3) Print overall metrics (not written to file)
     prefix_match_rate = float(np.mean(prefix_hits)) if prefix_hits else 0.0
     avg_edit_sim      = float(np.mean(sim_scores)) if sim_scores else 0.0
     sig_overlap_rate  = (
@@ -517,25 +517,25 @@ _SPECIAL_TAG_PATTERNS = [
 ]
 
 def _clean_for_metrics(s: str) -> str:
-    # 统一编码 & 去控制字符/替换符
+    # Normalize encoding & remove control characters/replacement chars
     s = unicodedata.normalize("NFKC", s)
     s = s.replace("\uFFFD", "")                    # '�'
-    s = re.sub(r"[\x00-\x1F\x7F]", " ", s)         # 控制字符
+    s = re.sub(r"[\x00-\x1F\x7F]", " ", s)         # Control characters
 
-    # 去掉常见“特殊标记”
+    # Remove common "special tags"
     for pat in _SPECIAL_TAG_PATTERNS:
         s = re.sub(pat, " ", s)
 
-    # 折叠/清除纯分隔符型垃圾串（如 <|<|<|<|...）
-    s = re.sub(r"(?:<\|){2,}", " ", s)             # 连续 <|<|<|...
-    s = re.sub(r"[<>\|\[\]/]{4,}", " ", s)         # 4+ 个由 < > | [ ] / 组成的连串
-    s = re.sub(r"([^\w\s])\1{4,}", r"\1\1\1", s)   # 同一标点 5+ 次 → 压到 3 次
+    # Collapse/remove pure separator garbage strings (e.g. <|<|<|<|...)
+    s = re.sub(r"(?:<\|){2,}", " ", s)             # Consecutive <|<|<|...
+    s = re.sub(r"[<>\|\[\]/]{4,}", " ", s)         # 4+ consecutive characters from < > | [ ] /
+    s = re.sub(r"([^\w\s])\1{4,}", r"\1\1\1", s)   # Same punctuation 5+ times → compress to 3 times
 
-    # 标准化空白并小写（与 _normalize_text 一致）
+    # Normalize whitespace and lowercase (same as _normalize_text)
     s = " ".join(s.strip().split()).lower()
     return s
 
-# —— 如果你更希望保留“原有的 _normalize_text 行为”，也可以在清洗后再走一遍 —— 
+    # —— If you prefer to keep the original _normalize_text behavior, you can run it again after cleaning —— 
 def _normalize_for_metrics(s: str, clean: bool = False) -> str:
     return _clean_for_metrics(s) if clean else _normalize_text(s)
 
@@ -564,8 +564,8 @@ def _norm_lev_sim(a: str, b: str, clean: bool = False) -> float:
 
 def lineage_score_simple(base_y: str, suspect_y: str, k_prefix: int = 30, clean: bool = False) -> dict:
     """
-    三指标（等权）：PAL_k, Levenshtein 相似度, LCS 比率
-    clean=True 时先剥离 <|system|> / <|<|<|... 之类标记/垃圾串。
+    Three metrics (equal weight): PAL_k, Levenshtein similarity, LCS ratio
+    When clean=True, first remove <|system|> / <|<|<|... and similar tags/garbage strings.
     """
     pal = _prefix_agreement_len(base_y, suspect_y, clean=clean)
     pal_k = 1.0 if pal >= k_prefix else 0.0
@@ -584,10 +584,10 @@ def lineage_score_simple(base_y: str, suspect_y: str, k_prefix: int = 30, clean:
 
 def evaluate_lineage_simple(source, k_prefix: int = 30, verbose: bool = True):
     """
-    source: 
-      - str: 路径（evaluate_fingerprints 保存的 minimal JSON）
-      - list[dict]: 形如 [{"fingerprint":..., "base_y":..., "suspect_y":...}, ...]
-    打印整体均值并返回包含逐样本与汇总的 dict。
+        source: 
+            - str: path (minimal JSON saved by evaluate_fingerprints)
+            - list[dict]: like [{"fingerprint":..., "base_y":..., "suspect_y":...}, ...]
+        Print overall means and return a dict containing per-sample and summary.
     """
     import json
 
@@ -661,8 +661,8 @@ def append_lineage_score_csv(res: dict,
                              suspect_model_name: str | None = None,
                              relation: str | None = None):
     """
-    将 evaluate_lineage_simple(...) 的结果写入 CSV（追加一行汇总）。
-    列：base_model_name, suspect_model_name, relation, num_pairs, k_prefix,
+    Write the result of evaluate_lineage_simple(...) to CSV (append one summary row).
+    Columns: base_model_name, suspect_model_name, relation, num_pairs, k_prefix,
         pal_chars_mean, pal_k_mean, lev_sim_mean, lcs_ratio_mean, score_mean
     """
     meta = res.get("meta", {}) if isinstance(res, dict) else {}
@@ -713,11 +713,11 @@ def evaluate_and_append_simple(source,
                                relation: str | None = None,
                                verbose: bool = True):
     """
-    一步到位：评估 + 追加到CSV。返回 res。
-    新增参数 relation：传 'same' 或 'diff'（也接受 'pos'/'neg' 等别名）。
-    source 可为：
-      - str: evaluate_fingerprints() 保存的 minimal JSON 路径
-      - list[dict]: 直接传 records 列表
+        All-in-one: evaluate + append to CSV. Returns res.
+        New parameter relation: pass 'same' or 'diff' (also accepts 'pos'/'neg' etc).
+        source can be:
+            - str: path to minimal JSON saved by evaluate_fingerprints()
+            - list[dict]: directly pass records list
     """
     res = evaluate_lineage_simple(source, k_prefix=k_prefix, verbose=verbose)
     append_lineage_score_csv(
@@ -786,11 +786,11 @@ def load_hf_model(model_id, fourbit=False, torch_dtype=torch.float16, device_map
 import gc, torch
 
 def unload_hf_model(model=None, tokenizer=None):
-    """释放 HF 模型与显存/内存。兼容 device_map('auto') / 单卡。"""
+    """Release HF model and GPU/CPU memory. Compatible with device_map('auto') / single GPU."""
     try:
         if model is not None:
             try:
-                model.to('cpu')  # 先转回 CPU，避免有残留显存句柄
+                model.to('cpu')  # Move back to CPU first to avoid leftover GPU handles
             except Exception:
                 pass
             del model
@@ -802,10 +802,10 @@ def unload_hf_model(model=None, tokenizer=None):
     except Exception:
         pass
 
-    # Python 对象回收
+    # Python object cleanup
     gc.collect()
 
-    # CUDA 显存清理（含跨进程共享块）
+    # CUDA memory cleanup (including inter-process shared blocks)
     if torch.cuda.is_available():
         try:
             torch.cuda.empty_cache()
@@ -814,7 +814,7 @@ def unload_hf_model(model=None, tokenizer=None):
             pass
 
 def unload_llama_cpp(llm=None):
-    """释放 llama.cpp GGUF 实例（如用到的话）。"""
+    """Release llama.cpp GGUF instance (if used)."""
     try:
         if llm is not None and hasattr(llm, "close"):
             llm.close()

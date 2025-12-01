@@ -84,7 +84,7 @@ def load_hf_model_and_tokenizer(
 def js_divergence(p: torch.Tensor, q: torch.Tensor, eps: float = 1e-12) -> torch.Tensor:
     """
     Jensen–Shannon divergence between two 1D probability vectors p, q on same support.
-    返回一个标量 tensor。
+    Returns a scalar tensor.
     """
     p = p + eps
     q = q + eps
@@ -132,7 +132,7 @@ def generate_fingerprints_for_base(
     an error and you should replace its body with your own implementation.
     """
 
-    # 这里调用你原来的 batch 生成函数；注意参数名要和你的实现对应
+    # Call your original batch generation function here; make sure the parameter names match your implementation
     pairs, _ = generate_fingerprints_batch(
         model=model,
         model_name=model_name,
@@ -216,7 +216,7 @@ def eval_one_base_model(
         )
         print(f"[base] got {len(fps)} fingerprint pairs")
 
-        # suspect 用自己的 fixed bottom-k vocab 做 greedy，用于 text metrics
+        # Suspect uses its own fixed bottom-k vocab for greedy decoding, used for text metrics
         processors = LogitsProcessorList(
             [BottomKLogitsProcessor(allowed_token_ids=suspect_bottomk_ids)]
         )
@@ -231,7 +231,7 @@ def eval_one_base_model(
         for idx, fp in enumerate(fps):
             prompt_text = extract_prompt_from_fingerprint(fp)
 
-            # 2.1  JS divergence：只看最后一个位置的下一 token 分布
+            # 2.1  JS divergence: only look at the next token distribution at the last position
             # base logits
             base_inputs = base_tok(
                 prompt_text,
@@ -244,7 +244,7 @@ def eval_one_base_model(
             base_logits_last = base_out.logits[0, -1, :]  # [V]
             base_probs = torch.softmax(base_logits_last, dim=-1)
 
-            # suspect logits（只 forward 一次，不生成）
+            # suspect logits (only forward once, no generation)
             sus_inputs = suspect_tokenizer(
                 prompt_text,
                 return_tensors="pt",
@@ -256,14 +256,14 @@ def eval_one_base_model(
             sus_logits_last = sus_out.logits[0, -1, :]
             sus_probs = torch.softmax(sus_logits_last, dim=-1)
 
-            # 限制到 base 的 fixed bottom-k vocab
+            # Restrict to base's fixed bottom-k vocab
             vocab_size_sus = sus_probs.size(0)
 
-            # 过滤掉在 suspect vocab 里越界的 id
+            # Filter out ids that are out of bounds in suspect vocab
             safe_base_bottomk_ids = [tid for tid in base_bottomk_ids if 0 <= tid < vocab_size_sus]
 
             if len(safe_base_bottomk_ids) == 0:
-                # 极端情况：两边 vocab 完全对不上，直接跳过这个 pair
+                # Extreme case: vocabularies do not match at all, skip this pair
                 print(f"[warn] no safe bottom-k ids for pair {idx}, skip JS")
                 continue
 
@@ -284,7 +284,7 @@ def eval_one_base_model(
             js = js_divergence(p_k, q_k).item()
             js_scores.append(js)
 
-            # 2.2  suspect 在自己的 bottom-k vocab 里 greedy 生成 continuation
+            # 2.2  Suspect generates continuation greedily within its own bottom-k vocab
             sus_gen_inputs = suspect_tokenizer(
                 prompt_text,
                 return_tensors="pt",
@@ -299,7 +299,7 @@ def eval_one_base_model(
                     logits_processor=processors,
                 )[0]
 
-            # 只保留 continuation 部分（去掉 prompt）
+            # Keep only the continuation part (remove prompt)
             gen_only_ids = output_ids[sus_gen_inputs["input_ids"].shape[1] :]
             if gen_only_ids.numel() > 0:
                 suspect_y = suspect_tokenizer.decode(
@@ -308,10 +308,10 @@ def eval_one_base_model(
             else:
                 suspect_y = ""
 
-            # base 的 y 从 fingerprint 里拿
+            # base's y is taken from the fingerprint
             base_y = fp.get("y_response", "")
 
-            # 2.3  文本相似度：沿用你之前那三个 metric
+            # 2.3  Text similarity: use the same three metrics as before
             min_prefix_len = getattr(args, "min_prefix_len", 30)
             sig_min_tok_len = getattr(args, "sig_min_tok_len", 6)
 
@@ -342,7 +342,7 @@ def eval_one_base_model(
         else:
             sig_overlap_rate = 0.0
 
-        # 简单平均一个 text overall 分数
+        # Simple average for an overall text score
         avg_text_score = (prefix_match_rate + avg_lcs + sig_overlap_rate) / 3.0
 
         result: Dict[str, Any] = {
@@ -381,10 +381,10 @@ def append_result_csv(
     csv_path: Path,
 ) -> None:
     """
-    逐条把一个 base_model 的结果 append 到 CSV 里。
+    Append the result of a base_model to the CSV one by one.
 
-    如果文件不存在，就先写 header；
-    如果已经存在，就只 append 一行。
+    If the file does not exist, write the header first;
+    If it already exists, just append one row.
     """
     csv_path = Path(csv_path)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
@@ -563,7 +563,7 @@ def main() -> None:
                     suspect_bottomk_ids=suspect_bottomk_ids,
                     args=args,
                 )
-                # 跑完一个 base 立刻写入一行
+                # After finishing one base, immediately write one row
                 append_result_csv(res, csv_path)
             except Exception as e:
                 print(f"[error] Failed on base model {base_model_name}: {e}")
