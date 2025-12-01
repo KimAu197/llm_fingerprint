@@ -3,18 +3,18 @@ bottomk_logits_processor.py
 
 Hard-constrained logits processor for a *fixed* bottom-k vocabulary.
 
-和之前“每一步重新算 bottom-k”不同，这个版本的逻辑是：
+Unlike the version that "recomputes bottom-k every step," this version works as follows:
 
-    - 你事先为某个模型算出一个固定的 bottom-k 词表 S (比如大小=2000)
-    - 在生成时，每一步 logits 计算好之后：
-        - 只保留 S 中 token 的原始 logits
-        - 所有不在 S 里的 token logits 设为 -inf
-    - 然后用 greedy / sampling 生成，就等价于“只在固定 bottom-k 里生成”
+    - Precompute a fixed bottom-k vocab S for a model (e.g., size=2000).
+    - During generation, after each logits computation:
+        - Keep the original logits only for tokens in S.
+        - Set logits for tokens not in S to -inf.
+    - Greedy or sampling then becomes "generate only within the fixed bottom-k."
 
-这非常适合你现在的 fingerprint setting：
-    1) base model 上先定义一个固定的 bottom-k 词表（fingerprint 空间）
-    2) suspend model 在自己的固定 bottom-k 里 greedy 生成 y
-    3) 最后看 y 里的 token 有多少 ∈ base model 的 bottom-k 词表
+This fits the fingerprint setting:
+    1) On the base model, define a fixed bottom-k vocab (fingerprint space).
+    2) The suspect model greedily generates y within its fixed bottom-k.
+    3) Finally, check how many tokens in y belong to the base model's bottom-k vocab.
 """
 
 from typing import Iterable, List, Optional
@@ -27,16 +27,16 @@ class BottomKLogitsProcessor(LogitsProcessor):
     """
     Hard-constrained logits processor for a *fixed* allowed vocab set.
 
-    在初始化时传入 allowed_token_ids（比如一个模型的 bottom-2000 token id 列表），
-    在每个生成 step：
+    Pass allowed_token_ids at init (e.g., a model's bottom-2000 token id list).
+    At each generation step:
 
         new_scores = -inf
-        new_scores[..., allowed_token_ids] = 原 scores[..., allowed_token_ids]
+        new_scores[..., allowed_token_ids] = original scores[..., allowed_token_ids]
 
-    这样后续 softmax / greedy / sampling 都只能在 allowed_token_ids 子集里进行。
+    This forces softmax/greedy/sampling to operate only on allowed_token_ids.
 
-    参数:
-        allowed_token_ids:  允许输出的 token id 集合（如 bottom-k vocab）。
+    Args:
+        allowed_token_ids: token ids allowed to be produced (e.g., bottom-k vocab).
     """
 
     def __init__(self, allowed_token_ids: Iterable[int]):
@@ -44,17 +44,17 @@ class BottomKLogitsProcessor(LogitsProcessor):
         if len(allowed_token_ids) == 0:
             raise ValueError("`allowed_token_ids` must be a non-empty list of token ids.")
 
-        # 保存为长整型 tensor，便于后续 scatter / 索引
+        # Store as a long tensor for later scatter/index operations
         self.allowed_token_ids_tensor = torch.tensor(allowed_token_ids, dtype=torch.long)
 
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -> torch.FloatTensor:
         """
-        参数:
-            input_ids: (batch_size, seq_len)，当前已生成的 token 序列（这里其实不用）。
-            scores:    (batch_size, vocab_size)，当前 step 的 logits。
+        Args:
+            input_ids: (batch_size, seq_len) current generated token sequence (unused here).
+            scores:    (batch_size, vocab_size) logits at the current step.
 
-        返回:
-            new_scores: (batch_size, vocab_size)，除了 allowed_token_ids 之外全部为 -inf。
+        Returns:
+            new_scores: (batch_size, vocab_size) with everything outside allowed_token_ids set to -inf.
         """
         if scores.ndim != 2:
             raise ValueError(
@@ -63,10 +63,10 @@ class BottomKLogitsProcessor(LogitsProcessor):
 
         batch_size, vocab_size = scores.shape
 
-        # 把 allowed ids 移到和 scores 同一个设备上
+        # Move allowed ids to the same device as scores
         allowed_ids = self.allowed_token_ids_tensor.to(scores.device)
 
-        # 防御：如果 vocab_size 比我们预期的小，截断一下（几乎不会发生）
+        # Guard: if vocab_size is smaller than expected, truncate (rare)
         allowed_ids = allowed_ids[allowed_ids < vocab_size]
         if allowed_ids.numel() == 0:
             raise ValueError(
@@ -74,10 +74,10 @@ class BottomKLogitsProcessor(LogitsProcessor):
                 f"vocab_size={vocab_size}."
             )
 
-        # 先全部设为 -inf
+        # Set everything to -inf first
         new_scores = scores.new_full(scores.shape, float("-inf"))
-        # 再把 allowed_ids 上的 logit 从原 scores 拷回来
-        # gather scores[..., allowed_ids] 的 shape 是 (batch_size, len(allowed_ids))
+        # Then copy logits at allowed_ids from the original scores
+        # gather scores[..., allowed_ids] shape is (batch_size, len(allowed_ids))
         selected_scores = scores.index_select(dim=-1, index=allowed_ids)
         new_scores.scatter_(-1, allowed_ids.unsqueeze(0).expand(batch_size, -1), selected_scores)
 
@@ -85,8 +85,8 @@ class BottomKLogitsProcessor(LogitsProcessor):
 
 
 # ============================
-# 辅助函数：为某个模型计算“全局 bottom-k vocab”（非常粗糙版）
-# 你可以根据需要换成更复杂的统计方式。
+# Helper: compute a "global bottom-k vocab" for a model (very rough version)
+# Replace with a more robust statistic if needed.
 # ============================
 
 def compute_bottomk_vocab_for_model(
@@ -97,30 +97,30 @@ def compute_bottomk_vocab_for_model(
     prompt: Optional[str] = None,
 ) -> List[int]:
     """
-    简单地为一个 causal LM 计算一次 bottom-k vocab 作为 fingerprint 空间。
+    Roughly compute a bottom-k vocab for a causal LM as a fingerprint space.
 
-    思路（简化版）：
-        - 用一个固定 prompt（或 BOS）跑一次 forward
-        - 取最后一个位置的 logits: (vocab_size,)
-        - 按 logits 升序排序，取前 k 个 token id 作为 bottom-k
+    Simplified idea:
+        - Run one forward pass with a fixed prompt (or BOS).
+        - Take the logits at the last position: (vocab_size,).
+        - Sort logits ascending and take the first k token ids as bottom-k.
 
-    这是一个粗糙但可行的近似：真正的“全局 bottom-k”可以用更多 prompt 做平均，
-    但作为实验起点已经够用。
+    This is crude but workable: a true "global bottom-k" could average over more prompts,
+    but it's good enough as a starting experiment.
 
-    参数:
+    Args:
         model:      HF AutoModelForCausalLM
-        tokenizer:  对应 tokenizer
-        k:          bottom-k 大小，例如 2000
-        device:     "cuda" / "mps" / "cpu"；若为 None 则自动取 model.device
-        prompt:     可选的上下文；若为 None，则用 tokenizer.bos_token 或简单占位文本。
+        tokenizer:  corresponding tokenizer
+        k:          bottom-k size, e.g., 2000
+        device:     "cuda" / "mps" / "cpu"; if None, auto-detect from model.device
+        prompt:     optional context; if None, use tokenizer.bos_token or a simple placeholder.
 
-    返回:
-        bottomk_ids: 长度为 k 的 token id 列表
+    Returns:
+        bottomk_ids: token id list of length k
     """
     model.eval()
 
     if device is None:
-        # 尝试从模型参数推断设备
+        # Try inferring the device from model parameters
         try:
             device = next(model.parameters()).device
         except StopIteration:
@@ -129,7 +129,7 @@ def compute_bottomk_vocab_for_model(
     if isinstance(device, torch.device):
         device = device.type
 
-    # 准备一个简单 prompt
+    # Prepare a simple prompt
     if prompt is None:
         if tokenizer.bos_token is not None:
             prompt = tokenizer.bos_token
@@ -140,13 +140,13 @@ def compute_bottomk_vocab_for_model(
 
     with torch.no_grad():
         outputs = model(**inputs)
-        # 取最后一个位置的 logits: (batch_size=1, seq_len, vocab_size) → (vocab_size,)
+        # Take logits at the last position: (batch_size=1, seq_len, vocab_size) -> (vocab_size,)
         logits = outputs.logits[0, -1, :]  # shape: (vocab_size,)
 
     vocab_size = logits.shape[0]
     k = min(k, vocab_size)
 
-    # 取 bottom-k：logits 最小的 k 个 token
+    # Take bottom-k: the k tokens with the lowest logits
     _, bottomk_indices = torch.topk(logits, k=k, largest=False)
 
     bottomk_ids = bottomk_indices.tolist()
@@ -154,25 +154,25 @@ def compute_bottomk_vocab_for_model(
 
 
 # ============================
-# Demo: 如何使用（你可以根据项目改掉）
+# Demo: how to use (adjust for your project)
 # ============================
 if __name__ == "__main__":
     """
-    Demo 流程（示意）：
+    Demo flow (illustrative):
 
-    1. 选一个 base model，算它的 bottom-k 词表：base_bottomk_ids
-    2. 选一个 suspect model，算它自己的 bottom-k 词表：suspect_bottomk_ids
-       （如果你想让它“在自己的 fixed bottom-k 里 greedy”，就用它自己的这个集合）
-    3. 对 suspect model 的 generate:
-        - 使用 BottomKLogitsProcessor(allowed_token_ids=suspect_bottomk_ids)
-        - do_sample=False（greedy）或 True（sampling in its bottom-k）
-    4. 生成完 y_suspect 后，对 token 做统计：
-        - 有多少 token id ∈ base_bottomk_ids
+    1. Choose a base model and compute its bottom-k vocab: base_bottomk_ids.
+    2. Choose a suspect model and compute its bottom-k vocab: suspect_bottomk_ids.
+       (If you want it to "greedy within its fixed bottom-k," use this set.)
+    3. For suspect model generate:
+        - Use BottomKLogitsProcessor(allowed_token_ids=suspect_bottomk_ids).
+        - do_sample=False (greedy) or True (sampling within its bottom-k).
+    4. After generating y_suspect, count tokens:
+        - How many token ids are in base_bottomk_ids.
     """
 
     from transformers import AutoTokenizer, AutoModelForCausalLM, LogitsProcessorList
 
-    # 只是 demo：实际你会用 Qwen / TinyLlama 等
+    # Demo only: in practice you'll use Qwen / TinyLlama etc.
     base_name = "gpt2"
     suspect_name = "gpt2"
 
@@ -195,12 +195,12 @@ if __name__ == "__main__":
     suspect_tokenizer = AutoTokenizer.from_pretrained(suspect_name)
     suspect_model = AutoModelForCausalLM.from_pretrained(suspect_name).to(device)
 
-    # 这里给一个简单 fingerprint prompt，实际会用你生成好的 x'
+    # A simple fingerprint prompt; in practice use your constructed x'
     fingerprint_prompt = "This is a fingerprint prompt: "
 
     inputs = suspect_tokenizer(fingerprint_prompt, return_tensors="pt").to(device)
 
-    # 如果你想让 suspect 在“自己的 bottom-k 里生成”，可以先算一遍：
+    # If you want the suspect to generate within its own bottom-k, compute it first:
     suspect_bottomk_ids = compute_bottomk_vocab_for_model(
         suspect_model,
         suspect_tokenizer,
@@ -208,7 +208,7 @@ if __name__ == "__main__":
         device=device,
     )
 
-    # 然后用 suspect_bottomk_ids 当作 allowed set：
+    # Then use suspect_bottomk_ids as the allowed set:
     logits_processors = LogitsProcessorList(
         [
             BottomKLogitsProcessor(allowed_token_ids=suspect_bottomk_ids),
@@ -228,7 +228,7 @@ if __name__ == "__main__":
     print("\n=== Suspect model generated text (greedy in its bottom-k) ===\n")
     print(generated_text)
 
-    # 统计：生成序列里，有多少 token id ∈ base_bottomk_ids
+    # Stats: how many token ids in the generated sequence are in base_bottomk_ids
     base_bottomk_set = set(base_bottomk_ids)
     overlap_count = sum(int(t.item() in base_bottomk_set) for t in generated_ids)
     overlap_ratio = overlap_count / len(generated_ids)

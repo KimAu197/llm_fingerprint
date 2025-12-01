@@ -31,8 +31,11 @@ from transformers import (
 )
 
 from test_batch import (
-        set_seed,
-        generate_fingerprints_batch,
+    set_seed,
+    generate_fingerprints_batch,
+    metric_prefix_match,
+    metric_lcs_ratio,
+    metric_signature_overlap,
 )
 
 from bottomk_logits_processor import (
@@ -78,6 +81,21 @@ def load_hf_model_and_tokenizer(
     model.eval()
     return model, tokenizer
 
+def js_divergence(p: torch.Tensor, q: torch.Tensor, eps: float = 1e-12) -> torch.Tensor:
+    """
+    Jensen–Shannon divergence between two 1D probability vectors p, q on same support.
+    返回一个标量 tensor。
+    """
+    p = p + eps
+    q = q + eps
+    p = p / p.sum()
+    q = q / q.sum()
+    m = 0.5 * (p + q)
+
+    kl_pm = (p * (p.log() - m.log())).sum()
+    kl_qm = (q * (q.log() - m.log())).sum()
+    return 0.5 * (kl_pm + kl_qm)
+
 
 def unload_hf_model(model, tokenizer) -> None:
     """Small helper to free CUDA/MPS memory."""
@@ -114,7 +132,7 @@ def generate_fingerprints_for_base(
     an error and you should replace its body with your own implementation.
     """
 
-    # Call your existing batch generator; keep parameter names aligned with your implementation
+    # 这里调用你原来的 batch 生成函数；注意参数名要和你的实现对应
     pairs, _ = generate_fingerprints_batch(
         model=model,
         model_name=model_name,
@@ -158,10 +176,13 @@ def eval_one_base_model(
     """
     For a single base model:
         1) load base model
-        2) generate fingerprint prompts x'
-        3) compute base bottom-k vocab (fingerprint space)
-        4) for each x', let suspect model generate y under its own bottom-k constraint
-        5) measure overlap ratio with base bottom-k vocab
+        2) generate fingerprint pairs (x', y_base)
+        3) compute base fixed bottom-k vocab (fingerprint space)
+        4) for each x':
+             - compute last-step JS divergence between base vs suspect on base bottom-k vocab
+             - let suspect generate greedy continuation under its *own* bottom-k constraint
+               and compare with y_base using the 3 text metrics
+        5) aggregate metrics and return.
     """
     device = args.device
 
@@ -169,6 +190,7 @@ def eval_one_base_model(
     base_model, base_tok = load_hf_model_and_tokenizer(base_model_name, device=device)
 
     try:
+        # 1) base fixed bottom-k vocab
         print("[base] Computing base model bottom-k vocab ...")
         base_bottomk_ids = compute_bottomk_vocab_for_model(
             base_model,
@@ -176,10 +198,12 @@ def eval_one_base_model(
             k=args.bottom_k_vocab,
             device=device,
         )
+        base_bottomk_ids = list(base_bottomk_ids)
         base_bottomk_set = set(base_bottomk_ids)
         print(f"[base] bottom-k size = {len(base_bottomk_ids)}")
 
-        print(f"[base] Generating {args.num_pairs} fingerprint prompts ...")
+        # 2) generate fingerprint pairs (x', y_base)
+        print(f"[base] Generating {args.num_pairs} fingerprint pairs ...")
         fps = generate_fingerprints_for_base(
             model=base_model,
             model_name=base_model_name,
@@ -192,57 +216,156 @@ def eval_one_base_model(
         )
         print(f"[base] got {len(fps)} fingerprint pairs")
 
-        # Prepare suspect logits processor: greedy decoding in its own bottom-k
+        # suspect 用自己的 fixed bottom-k vocab 做 greedy，用于 text metrics
         processors = LogitsProcessorList(
             [BottomKLogitsProcessor(allowed_token_ids=suspect_bottomk_ids)]
         )
 
-        pair_scores: List[float] = []
+        js_scores: List[float] = []
+        prefix_hits: List[float] = []
+        lcs_scores: List[float] = []
+        sig_hits: List[int] = []
+        sig_totals: List[int] = []
 
+        # ---- main loop over fingerprint pairs ----
         for idx, fp in enumerate(fps):
             prompt_text = extract_prompt_from_fingerprint(fp)
-            # tokenize with suspect tokenizer
-            inputs = suspect_tokenizer(
+
+            # 2.1  JS divergence：只看最后一个位置的下一 token 分布
+            # base logits
+            base_inputs = base_tok(
                 prompt_text,
                 return_tensors="pt",
                 truncation=True,
                 max_length=args.max_input_length,
             ).to(device)
+            with torch.no_grad():
+                base_out = base_model(**base_inputs)
+            base_logits_last = base_out.logits[0, -1, :]  # [V]
+            base_probs = torch.softmax(base_logits_last, dim=-1)
 
+            # suspect logits（只 forward 一次，不生成）
+            sus_inputs = suspect_tokenizer(
+                prompt_text,
+                return_tensors="pt",
+                truncation=True,
+                max_length=args.max_input_length,
+            ).to(device)
+            with torch.no_grad():
+                sus_out = suspect_model(**sus_inputs)
+            sus_logits_last = sus_out.logits[0, -1, :]
+            sus_probs = torch.softmax(sus_logits_last, dim=-1)
+
+            # 限制到 base 的 fixed bottom-k vocab
+            vocab_size_sus = sus_probs.size(0)
+
+            # 过滤掉在 suspect vocab 里越界的 id
+            safe_base_bottomk_ids = [tid for tid in base_bottomk_ids if 0 <= tid < vocab_size_sus]
+
+            if len(safe_base_bottomk_ids) == 0:
+                # 极端情况：两边 vocab 完全对不上，直接跳过这个 pair
+                print(f"[warn] no safe bottom-k ids for pair {idx}, skip JS")
+                continue
+
+            idx_tensor = torch.tensor(
+                safe_base_bottomk_ids, device=device, dtype=torch.long
+            )
+
+            p_k = base_probs[idx_tensor]
+            q_k = sus_probs[idx_tensor]
+            p_k = p_k / (p_k.sum() + 1e-12)
+            q_k = q_k / (q_k.sum() + 1e-12)
+            js = js_divergence(p_k, q_k).item()
+            js_scores.append(js)
+            # 重新归一化
+            p_k = p_k / (p_k.sum() + 1e-12)
+            q_k = q_k / (q_k.sum() + 1e-12)
+
+            js = js_divergence(p_k, q_k).item()
+            js_scores.append(js)
+
+            # 2.2  suspect 在自己的 bottom-k vocab 里 greedy 生成 continuation
+            sus_gen_inputs = suspect_tokenizer(
+                prompt_text,
+                return_tensors="pt",
+                truncation=True,
+                max_length=args.max_input_length,
+            ).to(device)
             with torch.no_grad():
                 output_ids = suspect_model.generate(
-                    **inputs,
+                    **sus_gen_inputs,
                     max_new_tokens=args.suspect_max_new_tokens,
                     do_sample=False,  # greedy
                     logits_processor=processors,
                 )[0]
 
-            # only count newly generated tokens (exclude prompt part)
-            gen_only_ids = output_ids[inputs["input_ids"].shape[1] :]
-
-            if gen_only_ids.numel() == 0:
-                score = 0.0
-            else:
-                overlap = sum(
-                    int(t.item() in base_bottomk_set) for t in gen_only_ids
+            # 只保留 continuation 部分（去掉 prompt）
+            gen_only_ids = output_ids[sus_gen_inputs["input_ids"].shape[1] :]
+            if gen_only_ids.numel() > 0:
+                suspect_y = suspect_tokenizer.decode(
+                    gen_only_ids, skip_special_tokens=True
                 )
-                score = overlap / float(gen_only_ids.numel())
+            else:
+                suspect_y = ""
 
-            pair_scores.append(score)
-            print(
-                f"[pair {idx+1}/{len(fps)}] overlap ratio with base bottom-k = {score:.4f}"
+            # base 的 y 从 fingerprint 里拿
+            base_y = fp.get("y_response", "")
+
+            # 2.3  文本相似度：沿用你之前那三个 metric
+            min_prefix_len = getattr(args, "min_prefix_len", 30)
+            sig_min_tok_len = getattr(args, "sig_min_tok_len", 6)
+
+            pm = metric_prefix_match(base_y, suspect_y, min_len=min_prefix_len)
+            lcs = metric_lcs_ratio(base_y, suspect_y)
+            h, tot = metric_signature_overlap(
+                base_y, suspect_y, min_tok_len=sig_min_tok_len
             )
 
-        avg_score = sum(pair_scores) / len(pair_scores) if pair_scores else 0.0
+            prefix_hits.append(float(pm))
+            lcs_scores.append(float(lcs))
+            sig_hits.append(int(h))
+            sig_totals.append(int(tot))
+
+            print(
+                f"[pair {idx+1}/{len(fps)}] "
+                f"JS={js:.4f}, prefix={pm}, lcs={lcs:.3f}, sig=({h}/{tot})"
+            )
+
+        # ---- aggregate over pairs ----
+        avg_js = float(sum(js_scores) / len(js_scores)) if js_scores else 0.0
+        prefix_match_rate = (
+            float(sum(prefix_hits) / len(prefix_hits)) if prefix_hits else 0.0
+        )
+        avg_lcs = float(sum(lcs_scores) / len(lcs_scores)) if lcs_scores else 0.0
+        if sum(sig_totals) > 0:
+            sig_overlap_rate = float(sum(sig_hits)) / float(sum(sig_totals))
+        else:
+            sig_overlap_rate = 0.0
+
+        # 简单平均一个 text overall 分数
+        avg_text_score = (prefix_match_rate + avg_lcs + sig_overlap_rate) / 3.0
 
         result: Dict[str, Any] = {
             "base_model_name": base_model_name,
             "suspect_model_name": args.suspect_model_name,
-            "num_pairs": len(pair_scores),
-            "avg_overlap_ratio": avg_score,
-            "pair_scores": pair_scores,
-            "bottom_k_vocab_size": args.bottom_k_vocab,
+            "num_pairs": len(js_scores),
+            "avg_js_divergence": avg_js,
+            "avg_prefix_match_rate": prefix_match_rate,
+            "avg_lcs_ratio": avg_lcs,
+            "avg_sig_overlap_rate": sig_overlap_rate,
+            "avg_text_score": avg_text_score,
+            # 方便以后想画分布：
+            "per_pair_js": js_scores,
+            "bottom_k_vocab_size": len(base_bottomk_ids),
         }
+
+        print("\n[base] Summary for", base_model_name)
+        print("  avg_js_divergence      :", avg_js)
+        print("  avg_prefix_match_rate  :", prefix_match_rate)
+        print("  avg_lcs_ratio          :", avg_lcs)
+        print("  avg_sig_overlap_rate   :", sig_overlap_rate)
+        print("  avg_text_score (mean)  :", avg_text_score)
+
         return result
 
     finally:
@@ -258,10 +381,10 @@ def append_result_csv(
     csv_path: Path,
 ) -> None:
     """
-    Append one base_model result row-by-row to the CSV.
+    逐条把一个 base_model 的结果 append 到 CSV 里。
 
-    If the file does not exist, write the header first;
-    otherwise just append one row.
+    如果文件不存在，就先写 header；
+    如果已经存在，就只 append 一行。
     """
     csv_path = Path(csv_path)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
@@ -270,16 +393,19 @@ def append_result_csv(
         "base_model_name",
         "suspect_model_name",
         "num_pairs",
-        "avg_overlap_ratio",
+        "avg_js_divergence",
+        "avg_prefix_match_rate",
+        "avg_lcs_ratio",
+        "avg_sig_overlap_rate",
+        "avg_text_score",
         "bottom_k_vocab_size",
-        "pair_scores_json",
+        "per_pair_js_json",
     ]
 
     file_exists = csv_path.exists()
 
     with csv_path.open("a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
-        # Write header if this is a new file
         if not file_exists:
             writer.writeheader()
 
@@ -288,13 +414,17 @@ def append_result_csv(
                 "base_model_name": result["base_model_name"],
                 "suspect_model_name": result["suspect_model_name"],
                 "num_pairs": result["num_pairs"],
-                "avg_overlap_ratio": result["avg_overlap_ratio"],
+                "avg_js_divergence": result["avg_js_divergence"],
+                "avg_prefix_match_rate": result["avg_prefix_match_rate"],
+                "avg_lcs_ratio": result["avg_lcs_ratio"],
+                "avg_sig_overlap_rate": result["avg_sig_overlap_rate"],
+                "avg_text_score": result["avg_text_score"],
                 "bottom_k_vocab_size": result["bottom_k_vocab_size"],
-                "pair_scores_json": json.dumps(result["pair_scores"]),
+                "per_pair_js_json": json.dumps(result["per_pair_js"]),
             }
         )
 
-    print(f"[csv] appended result for base={result['base_model_name']} to {csv_path}")
+    print(f"[csv] appended result for base={result['base_model_name']}")
 
 
 # ----------------- CLI -----------------
@@ -433,7 +563,7 @@ def main() -> None:
                     suspect_bottomk_ids=suspect_bottomk_ids,
                     args=args,
                 )
-                # After finishing one base, write the result row immediately
+                # 跑完一个 base 立刻写入一行
                 append_result_csv(res, csv_path)
             except Exception as e:
                 print(f"[error] Failed on base model {base_model_name}: {e}")
