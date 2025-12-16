@@ -20,8 +20,8 @@ DIFF_CSV = "lineage_bottomk_overlap_qwen_diff.csv"
 OUTPUT_FIG = "overlap_distribution_qwen.png"
 
 # Labels for legend
-SAME_LABEL = "Same (llama derived)"
-DIFF_LABEL = "Diff (llama base → qwen derived)"
+SAME_LABEL = "Same (qwen derived)"
+DIFF_LABEL = "Diff (qwen base → llama derived)"
 
 # Figure title
 TITLE = "Distribution of Bottom-k Subspace Overlap Ratio"
@@ -59,9 +59,9 @@ def main():
     ax.hist(same_values, bins=bins, alpha=0.6, label=SAME_LABEL, color='#2ecc71', edgecolor='white', linewidth=0.5)
     ax.hist(diff_values, bins=bins, alpha=0.6, label=DIFF_LABEL, color='#e74c3c', edgecolor='white', linewidth=0.5)
     
-    # # Add vertical lines for means
-    # ax.axvline(same_values.mean(), color='#27ae60', linestyle='--', linewidth=2, label=f'Same mean: {same_values.mean():.3f}')
-    # ax.axvline(diff_values.mean(), color='#c0392b', linestyle='--', linewidth=2, label=f'Diff mean: {diff_values.mean():.3f}')
+    # Add vertical lines for means
+    ax.axvline(same_values.mean(), color='#27ae60', linestyle='--', linewidth=2, label=f'Same mean: {same_values.mean():.3f}')
+    ax.axvline(diff_values.mean(), color='#c0392b', linestyle='--', linewidth=2, label=f'Diff mean: {diff_values.mean():.3f}')
     
     # Labels and title
     ax.set_xlabel('Average Overlap Ratio', fontsize=12)
