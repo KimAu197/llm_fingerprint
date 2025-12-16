@@ -1,0 +1,145 @@
+base_model_name,derived_model_name,num_pairs,avg_overlap_ratio,bottom_k_vocab_size,pair_scores_json
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,Qwen/Qwen2.5-0.5B-Instruct,5,0.0073999999999999995,2000,"[0.0105, 0.0015, 0.0095, 0.011, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,mlx-community/Qwen2.5-0.5B-Instruct-bf16,5,0.0073999999999999995,2000,"[0.0105, 0.0015, 0.0095, 0.011, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,unsloth/Qwen2.5-0.5B,5,0.0055,2000,"[0.008, 0.002, 0.01, 0.0055, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,rexzen615/Qwen2.5-0.5B-finetuned-wikitext2,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,numind/NuExtract-1.5-tiny,5,0.0066,2000,"[0.0095, 0.001, 0.011, 0.0085, 0.003]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,xue10/qwen2.5-0.5B-MathInstruct-lora,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,pcuenq/Qwen2.5-0.5B-Instruct-with-new-merges-serialization,5,0.0073999999999999995,2000,"[0.0105, 0.0015, 0.0095, 0.011, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,robertvacareanu/instruct-rl-Qwen2.5-0.5B-databricks-dolly-15k,5,0.0093,2000,"[0.008, 0.014, 0.0095, 0.011, 0.004]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,lewtun/Qwen2.5-0.5B-SFT-LoRA,5,0.006900000000000001,2000,"[0.0085, 0.003, 0.008, 0.013, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,ytzfhqs/Qwen2.5-med-book-main-classification,5,0.0070999999999999995,2000,"[0.0075, 0.009, 0.0075, 0.0035, 0.008]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,AMKCode/Qwen2.5-0.5B-q4f16_1-MLC,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,artificialguybr/Qwen2.5-0.5B-OpenHermes2.5,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,tjake/Qwen2.5-0.5B-Instruct-JQ4,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,piimaila/Qwen2.5-0.5B-openvino,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,artificialguybr/QWEN-2.5-0.5B-Synthia-II,5,0.0060999999999999995,2000,"[0.0095, 0.0015, 0.008, 0.0085, 0.003]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,Volko76/Qwen2.5-0.5B-Instruct-4.5bpw-exl2,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,Volko76/Qwen2.5-0.5B-Instruct-EXL2-4bits,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,sbrzz/TinyLLaVA-Qwen2.5-0.5B-dinov2-small,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,Qwen/Qwen2.5-Coder-0.5B,5,0.0026,2000,"[0.003, 0.003, 0.0015, 0.0045, 0.001]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,artificialguybr/QWEN-2.5-0.5B-Synthia-I,5,0.006,2000,"[0.01, 0.001, 0.008, 0.0075, 0.0035]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,jiangchengchengNLP/qwen_0.5B_instruct_law_summarize,5,0.013300000000000001,2000,"[0.014, 0.0155, 0.0125, 0.0165, 0.008]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,rawsh/MetaMath-Qwen2.5b-PRM,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,osllmai-community/Qwen2.5-0.5B,5,0.0055,2000,"[0.008, 0.002, 0.01, 0.0055, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,hangingardens/hihihi,5,0.0062,2000,"[0.0095, 0.0015, 0.011, 0.0065, 0.0025]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,llamafy/Qwen-Qwen2.5-0.5B-llamafied,5,0.0055,2000,"[0.008, 0.002, 0.01, 0.0055, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,caelancooper/Qwen2.5-0.5B-business,5,0.0073999999999999995,2000,"[0.0105, 0.0015, 0.0095, 0.011, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,DongfuJiang/Qwen2.5-0.5B-Instruct,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,sail/Sailor2-1B-Pre,5,0.0036,2000,"[0.0035, 0.0025, 0.0035, 0.0055, 0.003]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,morgan/qwen2_5.qwen2_5_0_5b_instruct,5,0.0073999999999999995,2000,"[0.0105, 0.0015, 0.0095, 0.011, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,fdyrd/QwenMath-0.5B,5,0.0083,2000,"[0.0105, 0.0055, 0.0125, 0.0095, 0.0035]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,tcapelle/toxicity-scorer-qwen,5,0.0054,2000,"[0.007, 0.005, 0.0055, 0.0055, 0.004]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,tcapelle/toxicity-scorer-qwen-ct2,5,0.0127,2000,"[0.017, 0.0115, 0.0115, 0.0165, 0.007]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,sail/Sailor2-1B,5,0.002,2000,"[0.0015, 0.0005, 0.0025, 0.0035, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,plaguss/Qwen2.5-0.5B-Math-Shepherd-PRM-0.1,5,0.005900000000000001,2000,"[0.01, 0.0015, 0.0105, 0.006, 0.0015]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,plaguss/Qwen2.5-0.5B-Math-Shepherd-PRM-token-0.1,5,0.0056,2000,"[0.006, 0.0015, 0.0095, 0.006, 0.005]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,googlefan/cycleqd-test-model,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,AlyGreo/finetune-Qwen2-0.5B-codeDataset,5,0.0056,2000,"[0.0075, 0.003, 0.0105, 0.005, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,jiangchengchengNLP/qwenva,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,ibrahimkettaneh/NuExtract-1.5-tiny-4.5bpw-h8-exl2,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,plaguss/Qwen2.5-0.5B-Math-Shepherd-PRM-0.2,5,0.0060999999999999995,2000,"[0.0075, 0.0025, 0.01, 0.007, 0.0035]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,Audreygyj/Qwen2.5-0.5B-SFT,5,0.0058,2000,"[0.006, 0.0025, 0.0095, 0.0075, 0.0035]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,amadeusai/Amadeus-Verbo-BI-Qwen-2.5-0.5B-PT-BR-Instruct-Experimental,5,0.0079,2000,"[0.012, 0.0025, 0.0115, 0.0085, 0.005]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,YaoLuzjut/LoRAOcean_Qwen2.5-0.5B_lora,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,shb2024/Qwen-0.5B-AMR,5,0.0104,2000,"[0.015, 0.0085, 0.0155, 0.007, 0.006]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,JayHyeon/Qwen2.5-0.5B-SFT,5,0.006999999999999999,2000,"[0.01, 0.004, 0.0095, 0.009, 0.0025]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,JayHyeon/Qwen2.5-0.5B-SFT-5e-5-3ep,5,0.0051,2000,"[0.0055, 0.002, 0.008, 0.0085, 0.0015]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,AcropolisLabs/Zyphen-CO-Legal-Autocomplete-micro,5,0.0047,2000,"[0.0075, 0.002, 0.005, 0.006, 0.003]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,viethq5/Qwen2.5-0.5B-Instruct-f16,5,0.0073999999999999995,2000,"[0.0105, 0.0015, 0.0095, 0.011, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,cavendishlabs/sftd_model_c03f6a40-3b64-4f9b-b5f3-dd704171c333,5,0.006,2000,"[0.0085, 0.0015, 0.0095, 0.0085, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,JayHyeon/QWEN_toy-DPOP_5e-5-100ep_0alp_5lam,5,0.004200000000000001,2000,"[0.005, 0.002, 0.0065, 0.0035, 0.004]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,cavendishlabs/sftd_model_1cdaec2e-939d-41c6-b49f-8c97e02695ec,5,0.0056,2000,"[0.0085, 0.002, 0.01, 0.0055, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,verge4646/autotrain-qwen-1737303151,5,0.0068000000000000005,2000,"[0.009, 0.002, 0.011, 0.0085, 0.0035]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,minchyeom/bot3-0.5B,5,0.0047,2000,"[0.006, 0.0015, 0.006, 0.005, 0.005]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,fabiopernisi/Qwen2.5-0.5B-BMW-compl,5,0.0057,2000,"[0.007, 0.0035, 0.01, 0.005, 0.003]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,josang1204/Qweb2.5-FT-CSY,5,0.0072,2000,"[0.009, 0.0015, 0.0145, 0.0065, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,p1atdev/qwen2.5-0.5b-grpo-math-01,5,0.0299,2000,"[0.0235, 0.0435, 0.0305, 0.0285, 0.0235]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,adarksky/Qwen2.5-0.5B-sft-lora-rel-therapy,5,0.005900000000000001,2000,"[0.0105, 0.0025, 0.008, 0.007, 0.0015]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,BlossomsAI/BloomVN-0.5B-ppo,5,0.0046,2000,"[0.0085, 0.0005, 0.0085, 0.0045, 0.001]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,alamios/DeepSeek-R1-DRAFT-Qwen2.5-0.5B,5,0.01,2000,"[0.0125, 0.0105, 0.0145, 0.008, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,DuoGuard/DuoGuard-0.5B,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,awentzonline/Qwen2.5-0.5B-replies,5,0.0073999999999999995,2000,"[0.0115, 0.001, 0.012, 0.0095, 0.003]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,brando/tfa_output_2025_m02_d07_t07h_45m_38s,5,0.0054,2000,"[0.008, 0.002, 0.01, 0.005, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,oieieio/Qwen2.5-0.5B-Instruct,5,0.0073999999999999995,2000,"[0.0105, 0.0015, 0.0095, 0.011, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,petkopetkov/Qwen2.5-0.5B-song-lyrics-generation,5,0.011,2000,"[0.0065, 0.013, 0.0145, 0.009, 0.012]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,yinmingzhang/qwen2.5-0.5b-zhihu-sft,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,sravan27745/agriculture,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,JonhTheTrueKingoftheNorth/Qwen2.5-0.5b,5,0.0058000000000000005,2000,"[0.013, 0.0025, 0.0085, 0.005, 0.0]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,dtejasaipraveen/qwenfinetuned,5,0.0055,2000,"[0.008, 0.002, 0.01, 0.0055, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,qgallouedec/Qwen2.5-0.5B-GRPO-2873,5,0.0055,2000,"[0.008, 0.002, 0.01, 0.0055, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,qgallouedec/Qwen2.5-0.5B-GRPO-main,5,0.0055,2000,"[0.008, 0.002, 0.01, 0.0055, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,slprl/slam,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,slprl/slam_scaled,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,BounharAbdelaziz/Al-Atlas-LLM-0.5B,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,alothomas/Qwen2.5-0.5B-PRM-RAD-balanced-V3,5,0.0093,2000,"[0.0095, 0.01, 0.01, 0.008, 0.009]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,yfliao/X-R1-0.5B,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,valerielucro/Qwen2-0.5B-GRPO-VLLM-mni-epoc-64-full,5,0.0054,2000,"[0.008, 0.002, 0.01, 0.005, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,alothomas/Qwen2.5-0.5B-PRM-RAD-balanced-V4,5,0.0046,2000,"[0.0025, 0.005, 0.0075, 0.004, 0.004]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,flyyufelix/Qwen-2.5-7B-Simple-RL,5,0.014100000000000001,2000,"[0.021, 0.02, 0.0125, 0.006, 0.011]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,jzhang-x/Qwen-2.5-7B-Simple-RL,5,0.0056,2000,"[0.0085, 0.002, 0.01, 0.0055, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,ruizhe1217/sft-s1-qwen-0.5b,5,0.0073999999999999995,2000,"[0.0105, 0.0015, 0.0095, 0.011, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,Henga/car_control_model,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,hZzy/qwen2.5-0.5b-sft-25-1,5,0.007000000000000001,2000,"[0.01, 0.0035, 0.011, 0.008, 0.0025]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,raajveers/autotrain-kaedg-pqrid,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,AhmedLet/Qwen_0.5_python_codes_mbpp,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,sathwik16/results,5,0.0057,2000,"[0.0105, 0.0015, 0.0095, 0.0055, 0.0015]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,mustafij48/qwen2.5-0.5B_on_databricks_dolly_4k_datasize_3_epoch,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,alothomas/Qwen2.5-0.5B-PRM-RAD-balanced-150k,5,0.0103,2000,"[0.01, 0.009, 0.0105, 0.0135, 0.0085]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,mustafij48/qwen2.5-0.5B_on_databricks_dolly_4k_datasize_5_epoch,5,0.005900000000000001,2000,"[0.0085, 0.002, 0.012, 0.005, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,valerielucro/Qwen2-0.5B-GRPO-VLLM-mni-epoch-8-peft,5,0.0055,2000,"[0.008, 0.002, 0.01, 0.0055, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,EdBerg/outputs_qwen_100,5,0.0092,2000,"[0.0105, 0.0045, 0.011, 0.013, 0.007]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,EdBerg/outputs_qwen_232,5,0.0068000000000000005,2000,"[0.0105, 0.005, 0.0095, 0.005, 0.004]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,atlasia/Al-Atlas-0.5B,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,southfreebird/Qwen2.5-0.5B-Instruct,5,0.0073999999999999995,2000,"[0.0105, 0.0015, 0.0095, 0.011, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,DiamondGotCat/Prism-0.2,5,0.0128,2000,"[0.0155, 0.0145, 0.022, 0.006, 0.006]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,jhu-clsp/rank1-0.5b,5,0.0076,2000,"[0.01, 0.0085, 0.0125, 0.003, 0.004]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,qgallouedec/Qwen2.5-0.5B-codeforces-SFT,5,0.0057,2000,"[0.0095, 0.0015, 0.01, 0.006, 0.0015]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,hZzy/qwen2.5-0.5b-sft2-25-1,5,0.006900000000000001,2000,"[0.01, 0.003, 0.0105, 0.008, 0.003]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,hZzy/qwen2.5-0.5b-sft3-25-1,5,0.0066,2000,"[0.011, 0.002, 0.0105, 0.007, 0.0025]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,akhadangi/Qwen2.5-0.5B-0.01-L,5,0.0056,2000,"[0.008, 0.0015, 0.0085, 0.008, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,akhadangi/Qwen2.5-0.5B-0.1-L,5,0.006,2000,"[0.0085, 0.002, 0.0095, 0.008, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,fungchen/Qwen2.5-0.5B-Instruct-4.5bpw-exl2,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,JayHyeon/Qwen2.5-0.5B_ultrainteract_sft_2e-5_1ep,5,0.006900000000000001,2000,"[0.007, 0.004, 0.009, 0.012, 0.0025]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,limcheekin/Qwen2.5-0.5B-Instruct-rk3588-1.1.4,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,conorbranagan/outputs,5,0.006900000000000001,2000,"[0.0115, 0.001, 0.0115, 0.006, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,conorbranagan/Qwen2.5-0.5B-fake-news,5,0.0067,2000,"[0.0115, 0.001, 0.011, 0.0055, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,alamios/Qwenstral-Small-3.1-0.5B,5,0.011,2000,"[0.015, 0.0075, 0.017, 0.0085, 0.007]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,alamios/QwQwen-0.5B,5,0.0050999999999999995,2000,"[0.009, 0.0005, 0.01, 0.0045, 0.0015]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,alamios/QwenSeek-R1-32B-0.5B,5,0.0054,2000,"[0.009, 0.0005, 0.0105, 0.005, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,YOYO-AI/Qwen2.5-0.5B-YOYO,5,0.0073999999999999995,2000,"[0.011, 0.0015, 0.0095, 0.0105, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,genovalabs/Qwen2.5-0.5B-Instruct,5,0.0073999999999999995,2000,"[0.0105, 0.0015, 0.0095, 0.011, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,eagle0504/fine-tuned-Qwen2.5-0.5B-openai-gsm8k-enhanced-v1,5,0.0053,2000,"[0.008, 0.002, 0.01, 0.0045, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,alamios/Qwemma-3-0.5B,5,0.006900000000000001,2000,"[0.0065, 0.0025, 0.02, 0.0045, 0.001]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,Bakanayatsu/runner-Qwen2.5-0.5B-v1,5,0.0484,2000,"[0.059, 0.0335, 0.0605, 0.031, 0.058]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,Gensyn/Qwen2.5-0.5B-Instruct,5,0.0073999999999999995,2000,"[0.0105, 0.0015, 0.0095, 0.011, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,rdsm/QwenPhi-4-0.5b-Draft,5,0.0079,2000,"[0.011, 0.0055, 0.011, 0.0085, 0.0035]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,YumeAyai/nailong,5,0.0064,2000,"[0.009, 0.0025, 0.012, 0.0065, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,Mozilla/Qwen2.5-0.5B-Instruct-llamafile,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,thundax/Qwen2.5-0.5B-Sign,5,0.0072,2000,"[0.009, 0.002, 0.012, 0.0075, 0.0055]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,Vikhrmodels/salt-qwen2.5-0.5b-tts,5,0.0104,2000,"[0.0065, 0.0115, 0.011, 0.0115, 0.0115]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,aalexchengg/test_trainer,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,bedobedo/Qwen2.5-0.5B-Instruct-Dir,5,0.0073999999999999995,2000,"[0.0105, 0.0015, 0.0095, 0.011, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,seyviour/qwen2.5-ft-averitec,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,liumy2010/Qwen2.5-0.5B-countdown-SFT,5,0.0056,2000,"[0.009, 0.001, 0.0105, 0.006, 0.0015]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,liumy2010/Qwen2.5-0.5B-math-SFT,5,0.0055,2000,"[0.009, 0.001, 0.009, 0.0065, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,liumy2010/Qwen2.5-0.5B-kk_logic-SFT,5,0.0063,2000,"[0.0085, 0.002, 0.012, 0.007, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,liumy2010/Qwen2.5-0.5B-countdown-RFT,5,0.0056,2000,"[0.008, 0.0015, 0.01, 0.0065, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,liumy2010/Qwen2.5-0.5B-countdown-SFT-RFT,5,0.0057,2000,"[0.0095, 0.001, 0.0105, 0.006, 0.0015]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,liumy2010/Qwen2.5-0.5B-countdown-UFT,5,0.0058000000000000005,2000,"[0.009, 0.0015, 0.0105, 0.006, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,liumy2010/Qwen2.5-0.5B-countdown-R3,5,0.0057,2000,"[0.0085, 0.0015, 0.0105, 0.006, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,Aleksandr505/phishing-text-classifier-qwen-2.5-0.5B,5,0.0086,2000,"[0.009, 0.005, 0.0075, 0.0115, 0.01]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,JayHyeon/Qwen2.5-0.5B_ultrainteract_sft_1e-5_1ep-ultrainteract,5,0.0068000000000000005,2000,"[0.0085, 0.0035, 0.01, 0.009, 0.003]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,liumy2010/Qwen2.5-0.5B-math-SFT-RFT,5,0.0053,2000,"[0.0085, 0.001, 0.009, 0.006, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,DexinR/qwen2.5-math220k-ckpt15000,5,0.0058000000000000005,2000,"[0.01, 0.0015, 0.01, 0.006, 0.0015]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,Silin1590/Qwen-0d5B-Int-Soc-CoA,5,0.007000000000000001,2000,"[0.0105, 0.001, 0.0115, 0.009, 0.003]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,reaperdoesntknow/Symbiotic-Beta,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,Silin1590/Qwen-0d5B-Int-CoT,5,0.007299999999999999,2000,"[0.0095, 0.0015, 0.011, 0.01, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,Vikhrmodels/salt-qwen2.5-0.5b-asr,5,0.0078,2000,"[0.0065, 0.0105, 0.0075, 0.0075, 0.007]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,stpete2/Qwen2.5-0.5b-gsm8k-drgrpocppo,5,0.0058000000000000005,2000,"[0.008, 0.001, 0.0115, 0.005, 0.0035]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,sarad777/xmodel777,5,0.0073999999999999995,2000,"[0.0105, 0.0015, 0.0095, 0.011, 0.0045]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,Ekanari/SLM_LAW,0,-1.0,2000,[]
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,Vikhrmodels/salt-qwen2.5-0.5b-asr-tts,5,0.0184,2000,"[0.023, 0.017, 0.0155, 0.0165, 0.02]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,Silin1590/Qwen-0d5B-Int-Soc-CoA-Fg,5,0.0066,2000,"[0.008, 0.0015, 0.0105, 0.009, 0.004]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,stpete2/Qwen2.5-0.5B-gsm8k-sft,5,0.0055,2000,"[0.008, 0.002, 0.01, 0.0055, 0.002]"
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,UoM-CS-NeuroSymbolicAI/checkpoints-vae-lm-math-reason-4k-query-add,0,-1.0,2000,[]
