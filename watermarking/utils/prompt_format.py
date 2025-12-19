@@ -25,3 +25,4 @@ def format_full_prompt(
     # default: oneshot
     return f"user: {x_prime_text}\nassistant:"
 
+
