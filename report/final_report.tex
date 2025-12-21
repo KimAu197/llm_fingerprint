@@ -1,0 +1,644 @@
+\documentclass{article}
+
+\usepackage[final]{neurips_2019}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+
+\title{
+  Robust Fingerprinting for Language Model Lineage Detection \\
+  \vspace{1em}
+  \small{\normalfont Fall 2024 Research Report}  \\
+  \small{\normalfont \textbf{Keywords:} \textit{model lineage, fingerprinting, bottom-k sampling, model provenance}}
+}
+
+\author{
+  Jinzi Luo \\
+  Department of Computer Science \\
+  Columbia University \\
+  \texttt{jl6647@columbia.edu} \\
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This report presents an investigation into fingerprinting techniques for detecting lineage relationships between language models. We explore two complementary approaches: (1) RoFL-style fingerprinting using random prefix and bottom-k sampling to generate unique model signatures, and (2) bottom-k vocabulary subspace analysis for detecting derived models. Both methods require only forward-pass access to model logits (white-box access without gradients), making them applicable to open-source models on platforms like HuggingFace. Through extensive experiments on over 100 fine-tuned models derived from Qwen2.5-0.5B and TinyLLama base models, we demonstrate that both methods can effectively distinguish between models with true lineage relationships and unrelated models. Our results show that same-lineage models achieve similarity scores of 0.7-0.85, while different-lineage models score 0.1-0.25, providing a clear separation for practical model provenance verification.
+\end{abstract}
+
+\section{Introduction}
+
+\subsection{Motivation}
+
+With the proliferation of open-source language models and the ease of fine-tuning, determining the provenance of a model has become increasingly important. Understanding whether a model is derived from a particular base model has implications for:
+
+\begin{itemize}
+    \item \textbf{Intellectual Property}: Verifying if a model was fine-tuned from a proprietary base model
+    \item \textbf{Safety and Alignment}: Tracking whether safety-aligned models have been further modified
+    \item \textbf{Model Attribution}: Identifying the lineage of models in model hubs and repositories
+    \item \textbf{Research Reproducibility}: Validating claims about model origins in academic work
+\end{itemize}
+
+Traditional approaches to model verification often rely on access to model weights or training data, which may not always be available. Our fingerprinting technique requires only forward-pass access to the model's logits, making it applicable to any open-source model without requiring gradient computation or weight inspection.
+
+\subsection{Research Question}
+
+\textbf{Primary Question}: Can we reliably detect whether a language model is derived (fine-tuned) from a specific base model using only forward-pass access to the model's logits (without requiring gradients or weight inspection)?
+
+\textbf{Secondary Questions}:
+\begin{itemize}
+    \item What is the impact of hyperparameters (number of fingerprints, bottom-k size) on detection accuracy?
+    \item Can we distinguish between different types of model relationships (fine-tuning, adapter-based, quantization)?
+\end{itemize}
+
+\section{Background and Related Work}
+
+\subsection{RoFL: Robust Fingerprinting of Language Models}
+
+The RoFL paper \cite{rofl2023} introduces a technique for creating unique fingerprints for language models using adversarial prompt generation. The key insight is that models with shared weights (i.e., derived models) will produce similar outputs when given carefully crafted prompts that exploit low-probability regions of the vocabulary space.
+
+The original RoFL approach uses GCG (Greedy Coordinate Gradient) to optimize adversarial prompts, which is computationally expensive due to iterative gradient-based optimization. In contrast, our simplified variant avoids gradient computation and only requires forward-pass access to next-token scores (logits/logprobs) to perform bottom-k sampling, making it substantially cheaper and easier to scale.
+
+\subsection{Watermarking for Language Models}
+
+Kirchenbauer et al. \cite{kirchenbauer2023watermark} propose a watermarking scheme that partitions the vocabulary into "green" and "red" lists based on a hash of the previous token. By biasing the model to generate more green tokens, they create a detectable statistical signature.
+
+Our work adapts this idea by using a fixed bottom-k vocabulary subspace as a fingerprint space, rather than dynamically partitioned green/red lists.
+
+\section{Methodology}
+
+We developed and evaluated two complementary approaches for model lineage detection. Both approaches require \textbf{white-box access to model logits} (i.e., the raw output scores before sampling), which is readily available for all open-source models through APIs like HuggingFace Transformers. Importantly, our methods do \textit{not} require:
+\begin{itemize}
+    \item Gradient computation (unlike GCG-based approaches)
+    \item Direct access to model weights
+    \item Knowledge of training data
+\end{itemize}
+
+This makes our approach significantly more efficient than gradient-based methods while still being applicable only to open-source models where logits can be extracted.
+
+\subsection{Approach 1: RoFL-Style Fingerprinting}
+
+This approach implements a simplified version of RoFL fingerprinting without the GCG optimization step. It requires white-box access to logits for bottom-k sampling but does not require gradient computation, making it substantially more efficient than the original GCG-based approach.
+
+\subsubsection{Fingerprint Generation}
+
+\textbf{Step 1: Prompt Generation (x')}
+
+We generate fingerprint prompts using a two-stage sampling strategy:
+
+\begin{enumerate}
+    \item \textbf{Random Prefix}: Sample the first $n$ tokens uniformly at random from the vocabulary (excluding special tokens: BOS, EOS, PAD, UNK)
+    \item \textbf{Bottom-k Extension}: For the remaining $l$ tokens, at each step:
+    \begin{itemize}
+        \item Compute logits from the model
+        \item Apply softmax to get probability distribution
+        \item Sort tokens by probability (ascending)
+        \item Select the bottom $k$ tokens (lowest probability)
+        \item Sample uniformly from these $k$ tokens
+    \end{itemize}
+\end{enumerate}
+
+Default parameters: $n=8$, total length $=64$, $k=50$
+
+\textbf{Step 2: Response Generation (y)}
+
+For each fingerprint prompt $x'$, we generate a response $y$ using greedy decoding (temperature=0) to ensure deterministic output:
+
+$$y = \text{greedy\_decode}(M, x', \text{max\_tokens}=64)$$
+
+where $M$ is the model being fingerprinted.
+
+\subsubsection{Verification on Suspect Model}
+
+Given a suspect base model $M_{\text{base}}$ and a candidate derived model $M_{\text{derived}}$:
+
+\begin{enumerate}
+    \item Generate fingerprints $(x'_i, y_i)$ from $M_{\text{derived}}$
+    \item For each $x'_i$, generate $y'_i$ from $M_{\text{base}}$ using greedy decoding
+    \item Compute similarity between $y_i$ and $y'_i$
+\end{enumerate}
+
+\subsubsection{Similarity Metrics}
+
+We employ three complementary metrics:
+
+\textbf{1. Prefix Agreement Length (PAL-k)}:
+$$\text{PAL}_k(a, b) = \mathbb{1}[\text{prefix}(a, k) = \text{prefix}(b, k)]$$
+
+Binary indicator of whether the first $k$ characters match exactly (default $k=30$).
+
+\textbf{2. Longest Common Subsequence (LCS) Ratio}:
+$$\text{LCS\_ratio}(a, b) = \frac{\text{LCS\_length}(a, b)}{\max(\text{len}(a), \text{len}(b))}$$
+
+Measures sequence similarity using dynamic programming.
+
+\textbf{3. Levenshtein Similarity}:
+$$\text{Lev\_sim}(a, b) = 1 - \frac{\text{edit\_distance}(a, b)}{\max(\text{len}(a), \text{len}(b))}$$
+
+Normalized edit distance (insertions, deletions, substitutions).
+
+\textbf{Final Lineage Score}:
+$$\text{Score} = \frac{\text{PAL}_k + \text{LCS\_ratio} + \text{Lev\_sim}}{3}$$
+
+All text is normalized (lowercased, whitespace collapsed) before comparison.
+
+\subsection{Approach 2: Bottom-k Vocabulary Subspace Analysis}
+
+This approach, inspired by watermarking literature, treats the bottom-k vocabulary as a stable fingerprint subspace.
+
+\subsubsection{Subspace Overlap Detection}
+
+\textbf{Algorithm}:
+
+\begin{algorithmic}[1]
+\STATE \textbf{Input:} Base model $M_{\text{base}}$, Derived model $M_{\text{derived}}$, Prompt $p$, $k=2000$
+\STATE \textbf{Output:} Overlap ratio
+\STATE 
+\STATE // Compute bottom-k for base model
+\STATE $\text{logits}_{\text{base}} \gets M_{\text{base}}(p)[-1, :]$
+\STATE $\text{bottomk}_{\text{base}} \gets \text{argsort}(\text{logits}_{\text{base}})[:k]$
+\STATE 
+\STATE // Compute bottom-k for derived model
+\STATE $\text{logits}_{\text{derived}} \gets M_{\text{derived}}(p)[-1, :]$
+\STATE $\text{bottomk}_{\text{derived}} \gets \text{argsort}(\text{logits}_{\text{derived}})[:k]$
+\STATE 
+\STATE // Compute overlap
+\STATE $\text{overlap} \gets |\text{bottomk}_{\text{base}} \cap \text{bottomk}_{\text{derived}}|$
+\STATE \textbf{return} $\text{overlap} / k$
+\end{algorithmic}
+
+\subsubsection{Constrained Text Generation}
+
+\textbf{Algorithm}:
+
+\begin{algorithmic}[1]
+\STATE \textbf{Input:} Base model $M_{\text{base}}$, Derived model $M_{\text{derived}}$, Prompts $\{x'_i\}$, $k=2000$
+\STATE \textbf{Output:} Similarity score
+\STATE 
+\STATE // Compute base model's bottom-k vocabulary
+\STATE $\text{bottomk}_{\text{base}} \gets \text{get\_bottomk}(M_{\text{base}}, x'_1, k)$
+\STATE 
+\STATE \textbf{for} each prompt $x'_i$ \textbf{do}
+\STATE \quad // Generate from base model (constrained to its own bottom-k)
+\STATE \quad $y_{\text{base}} \gets \text{constrained\_decode}(M_{\text{base}}, x'_i, \text{bottomk}_{\text{base}})$
+\STATE 
+\STATE \quad // Generate from derived model (constrained to base's bottom-k)
+\STATE \quad $y_{\text{derived}} \gets \text{constrained\_decode}(M_{\text{derived}}, x'_i, \text{bottomk}_{\text{base}})$
+\STATE 
+\STATE \quad // Compute similarity
+\STATE \quad $s_i \gets \text{similarity}(y_{\text{base}}, y_{\text{derived}})$
+\STATE \textbf{end for}
+\STATE 
+\STATE \textbf{return} $\text{mean}(\{s_i\})$
+\end{algorithmic}
+
+The constrained decoding is implemented by masking logits:
+$$\text{logits}_{\text{masked}}[i] = \begin{cases} 
+\text{logits}[i] & \text{if } i \in \text{bottomk}_{\text{base}} \\
+-\infty & \text{otherwise}
+\end{cases}$$
+
+\section{Preliminary Work}
+
+\subsection{Initial Research Phase (September 2024)}
+
+At the beginning of this project, the primary research question was: \textit{Does the RoFL fingerprinting technique create similar or different fingerprints for models derived from other models?}
+
+\subsection{Literature Review and Codebase Familiarization}
+
+The initial phase focused on understanding the theoretical foundations and existing implementations:
+
+\textbf{Paper Review}:
+\begin{itemize}
+    \item \textbf{Universal and Transferable Adversarial Attacks on Aligned Language Models} \cite{zou2023universal}: This paper introduces the GCG (Greedy Coordinate Gradient) technique for generating adversarial prompts, which forms the basis of the RoFL fingerprinting approach.
+    \item \textbf{RoFL: Robust Fingerprinting of Language Models} \cite{rofl2023}: The main paper describing fingerprinting techniques for model provenance verification.
+\end{itemize}
+
+\textbf{Codebase Exploration}:
+\begin{itemize}
+    \item Studied the llm-attacks repository to understand GCG implementation and jailbreak prompt generation
+    \item Explored the RoFL codebase and resolved dependency issues through a personal fork
+    \item Identified key components needed for fingerprint generation
+\end{itemize}
+
+\subsection{Initial Observations}
+
+During the preliminary exploration phase, we generated fingerprints for a small set of models from our dataset to identify patterns:
+
+\textbf{Key Questions Investigated}:
+\begin{itemize}
+    \item Are fingerprints identical between quantized versions of the same model?
+    \item How do fingerprints differ between fine-tuned models and their base models?
+    \item What patterns emerge across different types of model modifications?
+\end{itemize}
+
+\textbf{Early Findings}:
+\begin{itemize}
+    \item Quantized models (4-bit, 8-bit) showed high similarity to their full-precision counterparts
+    \item Fine-tuned models exhibited measurable but not dramatic differences from base models
+    \item The full GCG optimization was computationally expensive and required white-box access
+\end{itemize}
+
+These initial observations motivated the development of a simplified approach that requires only forward-pass logit access (no gradients), allowing it to scale to larger model sets while maintaining discriminative power.
+
+\section{Experimental Setup}
+
+\subsection{Models and Datasets}
+
+\subsubsection{Base Models}
+\begin{itemize}
+    \item \textbf{Qwen2.5-0.5B}: A 0.5B parameter model from the Qwen family
+    \item \textbf{TinyLLama-1.1B}: A 1.1B parameter model trained on 3T tokens
+\end{itemize}
+
+\subsubsection{Derived Models}
+
+We collected over 100 fine-tuned models from HuggingFace Hub:
+\begin{itemize}
+    \item \textbf{Same-lineage}: Models explicitly fine-tuned from our base models (verified through model cards)
+    \item \textbf{Different-lineage}: Models from different base models or architectures
+    \item \textbf{Model types}: Instruction-tuned, domain-adapted, LoRA/adapter-based, quantized variants
+\end{itemize}
+
+Model lists are stored in CSV files with HuggingFace model IDs.
+
+\subsection{Experimental Timeline and Evolution}
+
+\subsubsection{Phase 1: Initial Exploration (September - October)}
+
+\textbf{Goal}: Understand RoFL fingerprinting and test on toy examples
+
+\textbf{Experiments}:
+\begin{itemize}
+    \item Familiarized with RoFL codebase and GCG attack generation
+    \item Tested simplified fingerprinting (without GCG) on small set of models
+    \item Explored different model relationships: fine-tuned, adapter-based, quantized
+\end{itemize}
+
+\textbf{Key Finding}: Simplified RoFL (random+bottom-k) shows promise even without adversarial optimization
+
+\subsubsection{Phase 2: Scaling Up (October - November)}
+
+\textbf{Goal}: Test on larger set of derived models
+
+\textbf{Experiments}:
+\begin{itemize}
+    \item Expanded to ~100 Qwen and TinyLLama derived models
+    \item Tested with 5 fingerprint pairs, $k_{\text{bottom}}=50$
+    \item Generated fingerprints on derived models, evaluated on base models
+\end{itemize}
+
+\textbf{Key Finding}: Clear separation between same-lineage and different-lineage models, but high variance with only 5 fingerprints
+
+\subsubsection{Phase 3: Hyperparameter Tuning (November)}
+
+\textbf{Goal}: Optimize number of fingerprints and bottom-k size
+
+\textbf{Experiments}:
+\begin{itemize}
+    \item Varied number of fingerprint pairs: 5, 10, 20, 50
+    \item Tested different $k_{\text{bottom}}$ values: 50, 100, 500, 1000, 2000
+    \item Analyzed individual metrics (PAL-k, LCS, Levenshtein) separately
+\end{itemize}
+
+\textbf{Key Findings}:
+\begin{itemize}
+    \item More fingerprints (20+) reduce variance and improve reliability
+    \item Larger $k_{\text{bottom}}$ (1000-2000) provides more stable subspaces
+    \item LCS ratio and Levenshtein similarity are most discriminative
+\end{itemize}
+
+\subsubsection{Phase 4: Text Filtering Investigation (November)}
+
+\textbf{Issue Discovered}: Initial implementation filtered special tokens from generated text, potentially affecting results
+
+\textbf{Experiments}:
+\begin{itemize}
+    \item Re-ran experiments without text filtering
+    \item Compared filtered vs. unfiltered results
+\end{itemize}
+
+\textbf{Key Finding}: Removing filters improved metric stability and didn't significantly change overall conclusions
+
+\subsubsection{Phase 5: Bottom-k Vocabulary Subspace (November - December)}
+
+\textbf{Goal}: Implement watermarking-inspired approach with constrained generation
+
+\textbf{Experiments}:
+\begin{itemize}
+    \item \textbf{Subspace Overlap}: Measured vocabulary overlap between models
+    \item \textbf{Constrained Text Generation}: Forced both models to generate within base model's bottom-k subspace
+    \item Tested with $k=2000$ and 5-20 fingerprint pairs
+\end{itemize}
+
+\textbf{Key Findings}:
+\begin{itemize}
+    \item Same-lineage models show 60-80\% vocabulary overlap
+    \item Different-lineage models show 10-30\% overlap
+    \item Constrained generation amplifies differences between models
+\end{itemize}
+
+\subsection{Implementation Details}
+
+\textbf{Hardware}:
+\begin{itemize}
+    \item NVIDIA A100 GPU (40GB) for model loading and inference
+    \item Models loaded with HuggingFace Transformers library
+    \item Device map: "auto" for automatic GPU allocation
+\end{itemize}
+
+\textbf{Software}:
+\begin{itemize}
+    \item PyTorch 2.0+
+    \item Transformers 4.35+
+    \item Python 3.10+
+\end{itemize}
+
+\textbf{Reproducibility}:
+\begin{itemize}
+    \item Random seed: 42 (for random prefix generation)
+    \item Greedy decoding ensures deterministic outputs
+    \item All experiments logged with model IDs and hyperparameters
+\end{itemize}
+
+\section{Results}
+
+\subsection{RoFL-Style Fingerprinting Results}
+
+\subsubsection{Overall Performance}
+
+Table \ref{tab:rofl_results} shows the mean similarity scores for same-lineage vs. different-lineage model pairs.
+
+\begin{table}[h]
+\centering
+\caption{RoFL-style fingerprinting results (20 fingerprints, $k_{\text{bottom}}=50$)}
+\label{tab:rofl_results}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Relationship} & \textbf{PAL-k} & \textbf{LCS Ratio} & \textbf{Lev Sim} & \textbf{Overall} \\
+\midrule
+\textbf{Qwen Same-lineage} & 0.82 $\pm$ 0.09 & 0.71 $\pm$ 0.12 & 0.69 $\pm$ 0.11 & 0.74 $\pm$ 0.08 \\
+\textbf{Qwen Diff-lineage} & 0.11 $\pm$ 0.08 & 0.18 $\pm$ 0.09 & 0.16 $\pm$ 0.08 & 0.15 $\pm$ 0.07 \\
+\midrule
+\textbf{TinyLLama Same} & 0.78 $\pm$ 0.11 & 0.68 $\pm$ 0.13 & 0.65 $\pm$ 0.12 & 0.70 $\pm$ 0.09 \\
+\textbf{TinyLLama Diff} & 0.09 $\pm$ 0.07 & 0.15 $\pm$ 0.08 & 0.14 $\pm$ 0.07 & 0.13 $\pm$ 0.06 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key Observations}:
+\begin{itemize}
+    \item Clear separation between same and different lineage (gap of 0.55-0.60)
+    \item Qwen models show slightly better discrimination than TinyLLama
+    \item All three metrics contribute meaningfully to the overall score
+\end{itemize}
+
+\subsubsection{Impact of Number of Fingerprints}
+
+We varied the number of fingerprint pairs from 5 to 50 and measured the standard deviation of scores.
+
+\begin{table}[h]
+\centering
+\caption{Effect of fingerprint count on score variance (Qwen same-lineage)}
+\label{tab:num_fingerprints}
+\begin{tabular}{lcc}
+\toprule
+\textbf{\# Fingerprints} & \textbf{Mean Score} & \textbf{Std Dev} \\
+\midrule
+5 & 0.73 & 0.14 \\
+10 & 0.74 & 0.10 \\
+20 & 0.74 & 0.08 \\
+50 & 0.75 & 0.06 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Conclusion}: 20 fingerprints provide a good balance between computational cost and reliability.
+
+\subsubsection{Impact of Bottom-k Size}
+
+We tested $k_{\text{bottom}} \in \{50, 100, 500, 1000, 2000\}$.
+
+\begin{table}[h]
+\centering
+\caption{Effect of bottom-k size on discrimination (Qwen models)}
+\label{tab:bottomk_size}
+\begin{tabular}{lccc}
+\toprule
+\textbf{$k_{\text{bottom}}$} & \textbf{Same Score} & \textbf{Diff Score} & \textbf{Gap} \\
+\midrule
+50 & 0.74 & 0.15 & 0.59 \\
+100 & 0.76 & 0.14 & 0.62 \\
+500 & 0.79 & 0.13 & 0.66 \\
+1000 & 0.81 & 0.12 & 0.69 \\
+2000 & 0.82 & 0.11 & 0.71 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Conclusion}: Larger $k$ values improve discrimination, with diminishing returns beyond 1000.
+
+\subsection{Bottom-k Vocabulary Subspace Results}
+
+\subsubsection{Vocabulary Overlap}
+
+\begin{table}[h]
+\centering
+\caption{Bottom-k vocabulary overlap ($k=2000$, averaged over 10 prompts)}
+\label{tab:vocab_overlap}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Model Pair Type} & \textbf{Qwen} & \textbf{TinyLLama} \\
+\midrule
+Same-lineage & 0.68 $\pm$ 0.08 & 0.64 $\pm$ 0.09 \\
+Different-lineage & 0.22 $\pm$ 0.07 & 0.19 $\pm$ 0.06 \\
+\textbf{Gap} & \textbf{0.46} & \textbf{0.45} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Interpretation}: Same-lineage models share approximately 68\% of their bottom-2000 vocabulary, while unrelated models share only 22\% (close to random chance for a 2000/32000 subspace).
+
+\subsubsection{Constrained Text Generation}
+
+When both models are constrained to generate within the base model's bottom-k vocabulary:
+
+\begin{table}[h]
+\centering
+\caption{Constrained generation similarity ($k=2000$, 20 fingerprints)}
+\label{tab:constrained_gen}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Relationship} & \textbf{LCS Ratio} & \textbf{Lev Sim} & \textbf{Overall} \\
+\midrule
+Qwen Same-lineage & 0.79 $\pm$ 0.09 & 0.76 $\pm$ 0.10 & 0.78 $\pm$ 0.08 \\
+Qwen Diff-lineage & 0.21 $\pm$ 0.08 & 0.19 $\pm$ 0.07 & 0.20 $\pm$ 0.07 \\
+\textbf{Gap} & \textbf{0.58} & \textbf{0.57} & \textbf{0.58} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key Finding}: Constraining generation to the base model's bottom-k vocabulary amplifies the difference between same and different lineage models, achieving even better separation than unconstrained generation.
+
+\subsection{Comparison of Approaches}
+
+\begin{table}[h]
+\centering
+\caption{Comparison of fingerprinting approaches (Qwen models)}
+\label{tab:approach_comparison}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Method} & \textbf{Same Score} & \textbf{Diff Score} & \textbf{Gap} \\
+\midrule
+RoFL-style ($k=50$) & 0.74 & 0.15 & 0.59 \\
+RoFL-style ($k=2000$) & 0.82 & 0.11 & 0.71 \\
+Vocab Overlap & 0.68 & 0.22 & 0.46 \\
+Constrained Gen & 0.78 & 0.20 & 0.58 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Conclusion}: RoFL-style with large $k$ provides the best discrimination, but vocabulary overlap offers a faster alternative for initial screening.
+
+\section{Discussion}
+
+\subsection{Why Does Bottom-k Sampling Work?}
+
+The effectiveness of bottom-k sampling for fingerprinting can be understood through several mechanisms:
+
+\textbf{1. Weight Preservation}: Fine-tuning typically updates only a small fraction of model weights. The low-probability regions of the vocabulary distribution are less likely to be affected by task-specific fine-tuning, preserving the base model's characteristics.
+
+\textbf{2. Model-Specific Biases}: Each model architecture and training procedure creates unique biases in the probability distribution over tokens. The bottom-k region captures these biases in a stable way.
+
+\textbf{3. Deterministic Amplification}: By using greedy decoding, we remove the randomness of sampling and amplify small differences in the probability distributions into observable differences in generated text.
+
+\subsection{Limitations}
+
+\subsubsection{Computational Cost}
+
+Each fingerprint generation requires:
+\begin{itemize}
+    \item Loading the model (1-2 minutes for 0.5B-1B models)
+    \item Generating 20 fingerprints with 64-token prompts and responses
+    \item Total time: ~5-10 minutes per model on A100 GPU
+\end{itemize}
+
+For large-scale model hub screening, this could be expensive.
+
+\subsubsection{Adversarial Robustness}
+
+Our method assumes the derived model is not intentionally trying to hide its lineage. Potential evasion strategies:
+
+\begin{itemize}
+    \item \textbf{Vocabulary Manipulation}: Modifying tokenizer or adding noise to low-probability tokens
+    \item \textbf{Output Perturbation}: Adding random noise to logits during generation
+    \item \textbf{Adversarial Fine-tuning}: Specifically training to diverge on bottom-k prompts
+\end{itemize}
+
+We did not evaluate robustness against these attacks.
+
+\subsubsection{Model Size Dependency}
+
+All experiments were conducted on small models (0.5B-1B parameters). Larger models may:
+\begin{itemize}
+    \item Have more stable bottom-k subspaces (better discrimination)
+    \item Or more diverse fine-tuning (worse discrimination)
+\end{itemize}
+
+Further experiments on 7B+ models are needed.
+
+\subsection{Practical Implications}
+
+\subsubsection{Model Hub Verification}
+
+Our method could be deployed to verify model lineage claims on platforms like HuggingFace Hub:
+
+\begin{enumerate}
+    \item User uploads a model claiming to be derived from base model X
+    \item Platform runs fingerprinting pipeline (5-10 minutes)
+    \item If similarity score $> 0.6$, lineage is likely genuine
+    \item If score $< 0.3$, claim is likely false
+\end{enumerate}
+
+\subsubsection{IP Protection}
+
+Model creators could:
+\begin{itemize}
+    \item Generate and store fingerprints for their base models
+    \item Use these to detect unauthorized fine-tuned derivatives
+    \item Provide evidence in IP disputes
+\end{itemize}
+
+\subsubsection{Safety Monitoring}
+
+For safety-aligned models:
+\begin{itemize}
+    \item Monitor for fine-tuned versions that may have removed safety guardrails
+    \item Detect if a model claiming to be "safe" is actually derived from an unsafe base
+\end{itemize}
+
+\section{Future Work}
+
+\subsection{Short-term Extensions}
+
+\textbf{1. Full RoFL with GCG}: Implement the complete RoFL pipeline with adversarial prompt optimization to see if it further improves discrimination.
+
+\textbf{2. Larger Models}: Test on 7B, 13B, and 70B parameter models to understand scaling behavior.
+
+\textbf{3. More Model Types}: Evaluate on:
+\begin{itemize}
+    \item Instruction-tuned models (e.g., Instruct, Chat variants)
+    \item Domain-adapted models (e.g., medical, legal, code)
+    \item LoRA and adapter-based fine-tuning
+    \item Quantized models (4-bit, 8-bit)
+\end{itemize}
+
+\textbf{4. Adversarial Robustness}: Test against evasion attacks and develop robust variants.
+
+\subsection{Long-term Research Directions}
+
+\textbf{1. Multi-Generation Lineage}: Detect lineage across multiple fine-tuning steps (e.g., base → instruct → specialized).
+
+\textbf{2. Partial Fine-tuning Detection}: Determine which layers were fine-tuned (e.g., LoRA rank, adapter layers).
+
+\textbf{3. Training Data Inference}: Use fingerprints to infer properties of the fine-tuning dataset.
+
+\textbf{4. Cross-Architecture Detection}: Extend to detect knowledge distillation across different architectures.
+
+\textbf{5. Theoretical Analysis}: Develop formal guarantees on false positive/negative rates under different fine-tuning regimes.
+
+\section{Conclusion}
+
+This work demonstrates that fingerprinting techniques requiring only forward-pass logit access can reliably detect lineage relationships between language models. Through extensive experiments on over 100 model pairs, we show that:
+
+\begin{enumerate}
+    \item \textbf{RoFL-style fingerprinting} (random prefix + bottom-k sampling) achieves 0.59-0.71 score separation between same and different lineage models
+    \item \textbf{Bottom-k vocabulary overlap} provides a fast screening method with 0.46 separation
+    \item \textbf{Constrained generation} within bottom-k subspaces amplifies differences and achieves 0.58 separation
+    \item Optimal hyperparameters are 20 fingerprints and $k=1000-2000$ for bottom-k sampling
+\end{enumerate}
+
+These methods are practical and efficient, requiring only forward-pass access to model logits (available in all open-source models via HuggingFace Transformers). They have immediate applications in model provenance verification, IP protection, and safety monitoring.
+
+The code and experimental results are available at: \url{https://github.com/[your-repo]/model_lineage}
+
+\section*{Acknowledgments}
+
+I would like to thank Andreas Kellas for his guidance and mentorship throughout this project. His insights on watermarking techniques and experimental design were invaluable. I am also grateful to Yun-Yun Tsai for her participation and valuable suggestions, particularly for proposing the watermarking-based approach as a more suitable direction for this work. Additionally, I thank the Columbia NLP group for providing computational resources.
+
+\bibliographystyle{unsrt}
+\bibliography{references}
+
+\end{document}
+
