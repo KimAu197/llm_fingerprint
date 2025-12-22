@@ -1,4 +1,13 @@
-# Report directory
-llm_fingerprint/report/
+# Report directory (contains LaTeX files and figures)
+report/
 
-
+# Compiled LaTeX files
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.synctex.gz
+*.fdb_latexmk
+*.fls
