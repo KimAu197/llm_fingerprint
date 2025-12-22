@@ -12,21 +12,23 @@
 \usepackage{microtype}
 \usepackage{graphicx}
 \usepackage{xcolor}
+\usepackage{amssymb}
 \usepackage{algorithm}
 \usepackage{algorithmic}
+\usepackage{float}
 
 \title{
-  Robust Fingerprinting for Language Model Lineage Detection \\
+  A Study on Methods for Language Model Lineage Detection \\
   \vspace{1em}
-  \small{\normalfont Fall 2024 Research Report}  \\
-  \small{\normalfont \textbf{Keywords:} \textit{model lineage, fingerprinting, bottom-k sampling, model provenance}}
+  \small{\normalfont Fall 2025 Research Report}  \\
+  \small{\normalfont \textbf{Keywords:} \textit{model lineage, fingerprinting, bottom-k sampling}}
 }
 
 \author{
   Jinzi Luo \\
   Department of Computer Science \\
   Columbia University \\
-  \texttt{jl6647@columbia.edu} \\
+  \texttt{jl7199@columbia.edu} \\
 }
 
 \begin{document}
@@ -34,7 +36,7 @@
 \maketitle
 
 \begin{abstract}
-This report presents an investigation into fingerprinting techniques for detecting lineage relationships between language models. We explore two complementary approaches: (1) RoFL-style fingerprinting using random prefix and bottom-k sampling to generate unique model signatures, and (2) bottom-k vocabulary subspace analysis for detecting derived models. Both methods require only forward-pass access to model logits (white-box access without gradients), making them applicable to open-source models on platforms like HuggingFace. Through extensive experiments on over 100 fine-tuned models derived from Qwen2.5-0.5B and TinyLLama base models, we demonstrate that both methods can effectively distinguish between models with true lineage relationships and unrelated models. Our results show that same-lineage models achieve similarity scores of 0.7-0.85, while different-lineage models score 0.1-0.25, providing a clear separation for practical model provenance verification.
+We study logit-access fingerprinting for language model lineage detection, aiming to verify whether a candidate model is derived from a given base model using only forward-pass next-token logits (without gradients or weight inspection). We investigate two complementary approaches: (1) a simplified RoFL-style text fingerprint based on random-prefix prompts with bottom-$k$ token sampling, and (2) a bottom-$k$ vocabulary-overlap method that compares low-probability token sets across models. Across over 100 HuggingFace checkpoints per base family (Qwen2.5-0.5B and TinyLlama-1.1B-Chat), we find that vocabulary overlap provides substantially cleaner separation between same-lineage and different-lineage models than text-based fingerprints, while requiring only a small set of fixed prompts. We further show that the overlap signal can help distinguish sibling generations within a model family (Qwen2 vs. Qwen2.5) after threshold calibration. Finally, we analyze low-overlap outliers and identify practical failure modes---including noisy hub metadata, non-generative checkpoints, tokenizer misalignment, and stronger model modifications---highlighting both the promise and boundaries of vocabulary-based lineage verification in open-source model hubs.
 \end{abstract}
 
 \section{Introduction}
@@ -50,7 +52,7 @@ With the proliferation of open-source language models and the ease of fine-tunin
     \item \textbf{Research Reproducibility}: Validating claims about model origins in academic work
 \end{itemize}
 
-Traditional approaches to model verification often rely on access to model weights or training data, which may not always be available. Our fingerprinting technique requires only forward-pass access to the model's logits, making it applicable to any open-source model without requiring gradient computation or weight inspection.
+Traditional approaches to provenance verification often rely on access to model weights or training data, which may not always be available. In contrast, our fingerprinting techniques assume \emph{logit-access} (forward-pass next-token logits) but do not require gradient computation or direct inspection of model parameters, making them practical for large-scale analysis of open-source generative models on platforms such as HuggingFace.
 
 \subsection{Research Question}
 
@@ -59,586 +61,793 @@ Traditional approaches to model verification often rely on access to model weigh
 \textbf{Secondary Questions}:
 \begin{itemize}
     \item What is the impact of hyperparameters (number of fingerprints, bottom-k size) on detection accuracy?
-    \item Can we distinguish between different types of model relationships (fine-tuning, adapter-based, quantization)?
+    \item How do different fingerprinting strategies compare in accuracy and efficiency?
 \end{itemize}
 
-\section{Background and Related Work}
+\section{Related Work}
 
 \subsection{RoFL: Robust Fingerprinting of Language Models}
 
 The RoFL paper \cite{rofl2023} introduces a technique for creating unique fingerprints for language models using adversarial prompt generation. The key insight is that models with shared weights (i.e., derived models) will produce similar outputs when given carefully crafted prompts that exploit low-probability regions of the vocabulary space.
 
-The original RoFL approach uses GCG (Greedy Coordinate Gradient) to optimize adversarial prompts, which is computationally expensive due to iterative gradient-based optimization. In contrast, our simplified variant avoids gradient computation and only requires forward-pass access to next-token scores (logits/logprobs) to perform bottom-k sampling, making it substantially cheaper and easier to scale.
+The original RoFL approach uses GCG (Greedy Coordinate Gradient) to optimize adversarial prompts, which is computationally expensive due to iterative gradient-based optimization. Our methods avoid gradient computation entirely, requiring only forward-pass access to next-token logits, making them substantially cheaper and easier to scale.
 
 \subsection{Watermarking for Language Models}
 
-Kirchenbauer et al. \cite{kirchenbauer2023watermark} propose a watermarking scheme that partitions the vocabulary into "green" and "red" lists based on a hash of the previous token. By biasing the model to generate more green tokens, they create a detectable statistical signature.
+Kirchenbauer et al. \cite{kirchenbauer2023watermark} propose a watermarking scheme that partitions the vocabulary into ``green'' and ``red'' lists based on a hash of the previous token. By biasing the model to generate more green tokens, they create a detectable statistical signature.
 
-Our work adapts this idea by using a fixed bottom-k vocabulary subspace as a fingerprint space, rather than dynamically partitioned green/red lists.
+Our vocabulary overlap approach is inspired by this idea, using a fixed bottom-k vocabulary subspace as a fingerprint space that reveals model-specific biases.
 
+%==============================================================================
 \section{Methodology}
+%==============================================================================
 
-We developed and evaluated two complementary approaches for model lineage detection. Both approaches require \textbf{white-box access to model logits} (i.e., the raw output scores before sampling), which is readily available for all open-source models through APIs like HuggingFace Transformers. Importantly, our methods do \textit{not} require:
+We developed two complementary approaches for model lineage detection. Both approaches require white-box access to model logits (i.e., the raw output scores before sampling), which is readily available when running local inference (or via an API that exposes logits). Importantly, our methods do \textit{not} require:
 \begin{itemize}
     \item Gradient computation (unlike GCG-based approaches)
     \item Direct access to model weights
     \item Knowledge of training data
 \end{itemize}
 
-This makes our approach significantly more efficient than gradient-based methods while still being applicable only to open-source models where logits can be extracted.
+\subsection{Approach 1: Text-Based Fingerprinting (RoFL-Style)}
 
-\subsection{Approach 1: RoFL-Style Fingerprinting}
-
-This approach implements a simplified version of RoFL fingerprinting without the GCG optimization step. It requires white-box access to logits for bottom-k sampling but does not require gradient computation, making it substantially more efficient than the original GCG-based approach.
+This approach implements a simplified version of RoFL fingerprinting without the GCG optimization step.
 
 \subsubsection{Fingerprint Generation}
 
-\textbf{Step 1: Prompt Generation (x')}
+\textbf{Step 1: Prompt Generation ($x'$)}
 
 We generate fingerprint prompts using a two-stage sampling strategy:
-
 \begin{enumerate}
     \item \textbf{Random Prefix}: Sample the first $n$ tokens uniformly at random from the vocabulary (excluding special tokens: BOS, EOS, PAD, UNK)
-    \item \textbf{Bottom-k Extension}: For the remaining $l$ tokens, at each step:
+    \item \textbf{Bottom-k Extension}: For the remaining tokens, at each step:
     \begin{itemize}
         \item Compute logits from the model
-        \item Apply softmax to get probability distribution
         \item Sort tokens by probability (ascending)
         \item Select the bottom $k$ tokens (lowest probability)
         \item Sample uniformly from these $k$ tokens
     \end{itemize}
 \end{enumerate}
 
-Default parameters: $n=8$, total length $=64$, $k=50$
-
-\textbf{Step 2: Response Generation (y)}
+\textbf{Step 2: Response Generation ($y$)}
 
 For each fingerprint prompt $x'$, we generate a response $y$ using greedy decoding (temperature=0) to ensure deterministic output:
-
 $$y = \text{greedy\_decode}(M, x', \text{max\_tokens}=64)$$
-
-where $M$ is the model being fingerprinted.
-
-\subsubsection{Verification on Suspect Model}
-
-Given a suspect base model $M_{\text{base}}$ and a candidate derived model $M_{\text{derived}}$:
-
-\begin{enumerate}
-    \item Generate fingerprints $(x'_i, y_i)$ from $M_{\text{derived}}$
-    \item For each $x'_i$, generate $y'_i$ from $M_{\text{base}}$ using greedy decoding
-    \item Compute similarity between $y_i$ and $y'_i$
-\end{enumerate}
 
 \subsubsection{Similarity Metrics}
 
 We employ three complementary metrics:
 
-\textbf{1. Prefix Agreement Length (PAL-k)}:
-$$\text{PAL}_k(a, b) = \mathbb{1}[\text{prefix}(a, k) = \text{prefix}(b, k)]$$
-
-Binary indicator of whether the first $k$ characters match exactly (default $k=30$).
+\textbf{1. Prefix Agreement Length ($\mathrm{PAL}_k$)}:
+$$\mathrm{PAL}_k(a, b) = \mathbf{1}[\mathrm{prefix}(a, k) = \mathrm{prefix}(b, k)]$$
+Binary indicator of whether the first $k$ characters match exactly.
 
 \textbf{2. Longest Common Subsequence (LCS) Ratio}:
-$$\text{LCS\_ratio}(a, b) = \frac{\text{LCS\_length}(a, b)}{\max(\text{len}(a), \text{len}(b))}$$
-
-Measures sequence similarity using dynamic programming.
+$$\mathrm{LCS\_ratio}(a, b) = \frac{\mathrm{LCS\_length}(a, b)}{\max(\mathrm{len}(a), \mathrm{len}(b))}$$
 
 \textbf{3. Levenshtein Similarity}:
-$$\text{Lev\_sim}(a, b) = 1 - \frac{\text{edit\_distance}(a, b)}{\max(\text{len}(a), \text{len}(b))}$$
+$$\mathrm{Lev\_sim}(a, b) = 1 - \frac{\mathrm{edit\_distance}(a, b)}{\max(\mathrm{len}(a), \mathrm{len}(b))}$$
 
-Normalized edit distance (insertions, deletions, substitutions).
+\textbf{Final Score}: $\mathrm{Score} = \frac{\mathrm{PAL}_k + \mathrm{LCS\_ratio} + \mathrm{Lev\_sim}}{3}$
 
-\textbf{Final Lineage Score}:
-$$\text{Score} = \frac{\text{PAL}_k + \text{LCS\_ratio} + \text{Lev\_sim}}{3}$$
+\subsection{Approach 2: Bottom-k Vocabulary Overlap (Final Method)}
 
-All text is normalized (lowercased, whitespace collapsed) before comparison.
+This approach treats the bottom-k vocabulary as a stable fingerprint subspace. Instead of comparing generated text, we directly measure the overlap between the low-probability token sets of two models.
 
-\subsection{Approach 2: Bottom-k Vocabulary Subspace Analysis}
-
-This approach, inspired by watermarking literature, treats the bottom-k vocabulary as a stable fingerprint subspace.
-
-\subsubsection{Subspace Overlap Detection}
-
-\textbf{Algorithm}:
+\subsubsection{Algorithm}
 
 \begin{algorithmic}[1]
-\STATE \textbf{Input:} Base model $M_{\text{base}}$, Derived model $M_{\text{derived}}$, Prompt $p$, $k=2000$
-\STATE \textbf{Output:} Overlap ratio
+\STATE \textbf{Input:} Base model $M_{\text{base}}$, Candidate model $M_{\text{cand}}$, Prompts $\{p_i\}$, $k=2000$
+\STATE \textbf{Output:} Average overlap ratio
 \STATE 
-\STATE // Compute bottom-k for base model
-\STATE $\text{logits}_{\text{base}} \gets M_{\text{base}}(p)[-1, :]$
+\FOR{each prompt $p_i$}
+\STATE $\text{logits}_{\text{base}} \gets M_{\text{base}}(p_i)[-1, :]$ \COMMENT{Last token logits}
 \STATE $\text{bottomk}_{\text{base}} \gets \text{argsort}(\text{logits}_{\text{base}})[:k]$
 \STATE 
-\STATE // Compute bottom-k for derived model
-\STATE $\text{logits}_{\text{derived}} \gets M_{\text{derived}}(p)[-1, :]$
-\STATE $\text{bottomk}_{\text{derived}} \gets \text{argsort}(\text{logits}_{\text{derived}})[:k]$
+\STATE $\text{logits}_{\text{cand}} \gets M_{\text{cand}}(p_i)[-1, :]$
+\STATE $\text{bottomk}_{\text{cand}} \gets \text{argsort}(\text{logits}_{\text{cand}})[:k]$
 \STATE 
-\STATE // Compute overlap
-\STATE $\text{overlap} \gets |\text{bottomk}_{\text{base}} \cap \text{bottomk}_{\text{derived}}|$
-\STATE \textbf{return} $\text{overlap} / k$
+\STATE $\text{overlap}_i \gets |\text{bottomk}_{\text{base}} \cap \text{bottomk}_{\text{cand}}| / k$
+\ENDFOR
+\STATE \textbf{return} $\text{mean}(\{\text{overlap}_i\})$
 \end{algorithmic}
 
-\subsubsection{Constrained Text Generation}
+\subsubsection{Key Hyperparameters}
 
-\textbf{Algorithm}:
-
-\begin{algorithmic}[1]
-\STATE \textbf{Input:} Base model $M_{\text{base}}$, Derived model $M_{\text{derived}}$, Prompts $\{x'_i\}$, $k=2000$
-\STATE \textbf{Output:} Similarity score
-\STATE 
-\STATE // Compute base model's bottom-k vocabulary
-\STATE $\text{bottomk}_{\text{base}} \gets \text{get\_bottomk}(M_{\text{base}}, x'_1, k)$
-\STATE 
-\STATE \textbf{for} each prompt $x'_i$ \textbf{do}
-\STATE \quad // Generate from base model (constrained to its own bottom-k)
-\STATE \quad $y_{\text{base}} \gets \text{constrained\_decode}(M_{\text{base}}, x'_i, \text{bottomk}_{\text{base}})$
-\STATE 
-\STATE \quad // Generate from derived model (constrained to base's bottom-k)
-\STATE \quad $y_{\text{derived}} \gets \text{constrained\_decode}(M_{\text{derived}}, x'_i, \text{bottomk}_{\text{base}})$
-\STATE 
-\STATE \quad // Compute similarity
-\STATE \quad $s_i \gets \text{similarity}(y_{\text{base}}, y_{\text{derived}})$
-\STATE \textbf{end for}
-\STATE 
-\STATE \textbf{return} $\text{mean}(\{s_i\})$
-\end{algorithmic}
-
-The constrained decoding is implemented by masking logits:
-$$\text{logits}_{\text{masked}}[i] = \begin{cases} 
-\text{logits}[i] & \text{if } i \in \text{bottomk}_{\text{base}} \\
--\infty & \text{otherwise}
-\end{cases}$$
-
-\section{Preliminary Work}
-
-\subsection{Initial Research Phase (September 2024)}
-
-At the beginning of this project, the primary research question was: \textit{Does the RoFL fingerprinting technique create similar or different fingerprints for models derived from other models?}
-
-\subsection{Literature Review and Codebase Familiarization}
-
-The initial phase focused on understanding the theoretical foundations and existing implementations:
-
-\textbf{Paper Review}:
 \begin{itemize}
-    \item \textbf{Universal and Transferable Adversarial Attacks on Aligned Language Models} \cite{zou2023universal}: This paper introduces the GCG (Greedy Coordinate Gradient) technique for generating adversarial prompts, which forms the basis of the RoFL fingerprinting approach.
-    \item \textbf{RoFL: Robust Fingerprinting of Language Models} \cite{rofl2023}: The main paper describing fingerprinting techniques for model provenance verification.
+    \item \textbf{$k$ (bottom-k size)}: 2000 tokens (out of vocabulary size ~150k for Qwen)
+    \item \textbf{Number of prompts}: 5 random prompts for averaging
+    \item \textbf{Prompt format}: Random token sequences to avoid content bias
 \end{itemize}
 
-\textbf{Codebase Exploration}:
-\begin{itemize}
-    \item Studied the llm-attacks repository to understand GCG implementation and jailbreak prompt generation
-    \item Explored the RoFL codebase and resolved dependency issues through a personal fork
-    \item Identified key components needed for fingerprint generation
-\end{itemize}
+\subsubsection{Classification Threshold}
 
-\subsection{Initial Observations}
+Given the overlap ratio, we classify a candidate model as same-lineage if:
+$$\text{overlap\_ratio} > \tau$$
 
-During the preliminary exploration phase, we generated fingerprints for a small set of models from our dataset to identify patterns:
+The optimal threshold $\tau$ is determined by maximizing accuracy on validation data (typically $\tau \approx 0.008$ for Qwen models).
 
-\textbf{Key Questions Investigated}:
-\begin{itemize}
-    \item Are fingerprints identical between quantized versions of the same model?
-    \item How do fingerprints differ between fine-tuned models and their base models?
-    \item What patterns emerge across different types of model modifications?
-\end{itemize}
+%==============================================================================
+\section{Experiments}
+%==============================================================================
 
-\textbf{Early Findings}:
-\begin{itemize}
-    \item Quantized models (4-bit, 8-bit) showed high similarity to their full-precision counterparts
-    \item Fine-tuned models exhibited measurable but not dramatic differences from base models
-    \item The full GCG optimization was computationally expensive and required white-box access
-\end{itemize}
+\subsection{Experimental Setup}
 
-These initial observations motivated the development of a simplified approach that requires only forward-pass logit access (no gradients), allowing it to scale to larger model sets while maintaining discriminative power.
+\subsubsection{Models}
 
-\section{Experimental Setup}
-
-\subsection{Models and Datasets}
-
-\subsubsection{Base Models}
+\textbf{Base Models}:
 \begin{itemize}
     \item \textbf{Qwen2.5-0.5B}: A 0.5B parameter model from the Qwen family
-    \item \textbf{TinyLLama-1.1B}: A 1.1B parameter model trained on 3T tokens
+    \item \textbf{TinyLlama-1.1B-Chat}: A 1.1B parameter model trained on 3T tokens
 \end{itemize}
 
-\subsubsection{Derived Models}
-
-We collected over 100 fine-tuned models from HuggingFace Hub:
+\textbf{Derived Models}: We collected over 100 fine-tuned models from HuggingFace Hub for each base model:
 \begin{itemize}
-    \item \textbf{Same-lineage}: Models explicitly fine-tuned from our base models (verified through model cards)
-    \item \textbf{Different-lineage}: Models from different base models or architectures
-    \item \textbf{Model types}: Instruction-tuned, domain-adapted, LoRA/adapter-based, quantized variants
+    \item \textbf{Same-lineage (``same'')}: Models explicitly fine-tuned from our base models
+    \item \textbf{Different-lineage (``diff'')}: Models from different base models or architectures
 \end{itemize}
 
-Model lists are stored in CSV files with HuggingFace model IDs.
+\subsubsection{Implementation Details}
 
-\subsection{Experimental Timeline and Evolution}
-
-\subsubsection{Phase 1: Initial Exploration (September - October)}
-
-\textbf{Goal}: Understand RoFL fingerprinting and test on toy examples
-
-\textbf{Experiments}:
 \begin{itemize}
-    \item Familiarized with RoFL codebase and GCG attack generation
-    \item Tested simplified fingerprinting (without GCG) on small set of models
-    \item Explored different model relationships: fine-tuned, adapter-based, quantized
+    \item \textbf{Hardware}: Experiments were run on a single NVIDIA T4 GPU (primary), with early prototyping on A100.
+    \item \textbf{Software}: PyTorch 2.0+, Transformers 4.35+
+    \item \textbf{Reproducibility}: Random seed 42, greedy decoding for determinism
 \end{itemize}
 
-\textbf{Key Finding}: Simplified RoFL (random+bottom-k) shows promise even without adversarial optimization
+\subsection{Main Results: Vocabulary Overlap Method}
 
-\subsubsection{Phase 2: Scaling Up (October - November)}
-
-\textbf{Goal}: Test on larger set of derived models
-
-\textbf{Experiments}:
-\begin{itemize}
-    \item Expanded to ~100 Qwen and TinyLLama derived models
-    \item Tested with 5 fingerprint pairs, $k_{\text{bottom}}=50$
-    \item Generated fingerprints on derived models, evaluated on base models
-\end{itemize}
-
-\textbf{Key Finding}: Clear separation between same-lineage and different-lineage models, but high variance with only 5 fingerprints
-
-\subsubsection{Phase 3: Hyperparameter Tuning (November)}
-
-\textbf{Goal}: Optimize number of fingerprints and bottom-k size
-
-\textbf{Experiments}:
-\begin{itemize}
-    \item Varied number of fingerprint pairs: 5, 10, 20, 50
-    \item Tested different $k_{\text{bottom}}$ values: 50, 100, 500, 1000, 2000
-    \item Analyzed individual metrics (PAL-k, LCS, Levenshtein) separately
-\end{itemize}
-
-\textbf{Key Findings}:
-\begin{itemize}
-    \item More fingerprints (20+) reduce variance and improve reliability
-    \item Larger $k_{\text{bottom}}$ (1000-2000) provides more stable subspaces
-    \item LCS ratio and Levenshtein similarity are most discriminative
-\end{itemize}
-
-\subsubsection{Phase 4: Text Filtering Investigation (November)}
-
-\textbf{Issue Discovered}: Initial implementation filtered special tokens from generated text, potentially affecting results
-
-\textbf{Experiments}:
-\begin{itemize}
-    \item Re-ran experiments without text filtering
-    \item Compared filtered vs. unfiltered results
-\end{itemize}
-
-\textbf{Key Finding}: Removing filters improved metric stability and didn't significantly change overall conclusions
-
-\subsubsection{Phase 5: Bottom-k Vocabulary Subspace (November - December)}
-
-\textbf{Goal}: Implement watermarking-inspired approach with constrained generation
-
-\textbf{Experiments}:
-\begin{itemize}
-    \item \textbf{Subspace Overlap}: Measured vocabulary overlap between models
-    \item \textbf{Constrained Text Generation}: Forced both models to generate within base model's bottom-k subspace
-    \item Tested with $k=2000$ and 5-20 fingerprint pairs
-\end{itemize}
-
-\textbf{Key Findings}:
-\begin{itemize}
-    \item Same-lineage models show 60-80\% vocabulary overlap
-    \item Different-lineage models show 10-30\% overlap
-    \item Constrained generation amplifies differences between models
-\end{itemize}
-
-\subsection{Implementation Details}
-
-\textbf{Hardware}:
-\begin{itemize}
-    \item NVIDIA A100 GPU (40GB) for model loading and inference
-    \item Models loaded with HuggingFace Transformers library
-    \item Device map: "auto" for automatic GPU allocation
-\end{itemize}
-
-\textbf{Software}:
-\begin{itemize}
-    \item PyTorch 2.0+
-    \item Transformers 4.35+
-    \item Python 3.10+
-\end{itemize}
-
-\textbf{Reproducibility}:
-\begin{itemize}
-    \item Random seed: 42 (for random prefix generation)
-    \item Greedy decoding ensures deterministic outputs
-    \item All experiments logged with model IDs and hyperparameters
-\end{itemize}
-
-\section{Results}
-
-\subsection{RoFL-Style Fingerprinting Results}
-
-\subsubsection{Overall Performance}
-
-Table \ref{tab:rofl_results} shows the mean similarity scores for same-lineage vs. different-lineage model pairs.
+Table \ref{tab:main_results} shows the classification performance of the vocabulary overlap method.
 
 \begin{table}[h]
 \centering
-\caption{RoFL-style fingerprinting results (20 fingerprints, $k_{\text{bottom}}=50$)}
-\label{tab:rofl_results}
-\begin{tabular}{lcccc}
+\caption{Vocabulary overlap classification performance ($k=2000$, 5 prompts)}
+\label{tab:main_results}
+\begin{tabular}{lcccccc}
 \toprule
-\textbf{Relationship} & \textbf{PAL-k} & \textbf{LCS Ratio} & \textbf{Lev Sim} & \textbf{Overall} \\
+\textbf{Model} & \textbf{AUC} & \textbf{Threshold} & \textbf{Accuracy} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} \\
 \midrule
-\textbf{Qwen Same-lineage} & 0.82 $\pm$ 0.09 & 0.71 $\pm$ 0.12 & 0.69 $\pm$ 0.11 & 0.74 $\pm$ 0.08 \\
-\textbf{Qwen Diff-lineage} & 0.11 $\pm$ 0.08 & 0.18 $\pm$ 0.09 & 0.16 $\pm$ 0.08 & 0.15 $\pm$ 0.07 \\
-\midrule
-\textbf{TinyLLama Same} & 0.78 $\pm$ 0.11 & 0.68 $\pm$ 0.13 & 0.65 $\pm$ 0.12 & 0.70 $\pm$ 0.09 \\
-\textbf{TinyLLama Diff} & 0.09 $\pm$ 0.07 & 0.15 $\pm$ 0.08 & 0.14 $\pm$ 0.07 & 0.13 $\pm$ 0.06 \\
+Qwen2.5-0.5B & 0.988 & 0.0082 & 98.6\% & 100\% & 97.1\% & 0.985 \\
+TinyLlama & 0.977 & 0.0254 & 96.7\% & 98.0\% & 95.2\% & 0.966 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \textbf{Key Observations}:
 \begin{itemize}
-    \item Clear separation between same and different lineage (gap of 0.55-0.60)
-    \item Qwen models show slightly better discrimination than TinyLLama
-    \item All three metrics contribute meaningfully to the overall score
+    \item Both model families achieve AUC $>$ 0.97, indicating excellent discrimination
+    \item Near-perfect precision (100\% for Qwen) means no false positives
+    \item High recall ($>$95\%) ensures most same-lineage models are correctly identified
 \end{itemize}
 
-\subsubsection{Impact of Number of Fingerprints}
+Figure \ref{fig:vocab_overlap_dist} shows the distribution of vocabulary overlap scores for same-lineage and different-lineage models. The clear separation between the two distributions explains the high AUC achieved.
 
-We varied the number of fingerprint pairs from 5 to 50 and measured the standard deviation of scores.
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/12.15/overlap_distribution_qwen.png}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/12.15/overlap_distribution_llama.png}
+\end{minipage}
+\caption{Distribution of vocabulary overlap scores for Qwen2.5-0.5B (left) and TinyLlama (right). Same-lineage models show significantly higher overlap than different-lineage models.}
+\label{fig:vocab_overlap_dist}
+\end{figure}
+
+\subsection{Comparison: Text-Based vs. Vocabulary Overlap}
+
+Table \ref{tab:method_comparison} compares the two fingerprinting approaches.
 
 \begin{table}[h]
 \centering
-\caption{Effect of fingerprint count on score variance (Qwen same-lineage)}
-\label{tab:num_fingerprints}
-\begin{tabular}{lcc}
-\toprule
-\textbf{\# Fingerprints} & \textbf{Mean Score} & \textbf{Std Dev} \\
-\midrule
-5 & 0.73 & 0.14 \\
-10 & 0.74 & 0.10 \\
-20 & 0.74 & 0.08 \\
-50 & 0.75 & 0.06 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\textbf{Conclusion}: 20 fingerprints provide a good balance between computational cost and reliability.
-
-\subsubsection{Impact of Bottom-k Size}
-
-We tested $k_{\text{bottom}} \in \{50, 100, 500, 1000, 2000\}$.
-
-\begin{table}[h]
-\centering
-\caption{Effect of bottom-k size on discrimination (Qwen models)}
-\label{tab:bottomk_size}
+\caption{Comparison of fingerprinting methods}
+\label{tab:method_comparison}
 \begin{tabular}{lccc}
 \toprule
-\textbf{$k_{\text{bottom}}$} & \textbf{Same Score} & \textbf{Diff Score} & \textbf{Gap} \\
+\textbf{Method} & \textbf{Qwen AUC} & \textbf{TinyLlama AUC} & \textbf{Speed} \\
 \midrule
-50 & 0.74 & 0.15 & 0.59 \\
-100 & 0.76 & 0.14 & 0.62 \\
-500 & 0.79 & 0.13 & 0.66 \\
-1000 & 0.81 & 0.12 & 0.69 \\
-2000 & 0.82 & 0.11 & 0.71 \\
+Text-Based (RoFL-style) & 0.601 & 0.763 & Slower \\
+Vocabulary Overlap & \textbf{0.988} & \textbf{0.977} & Faster \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Conclusion}: Larger $k$ values improve discrimination, with diminishing returns beyond 1000.
+\textbf{Why Vocabulary Overlap Outperforms}:
+\begin{itemize}
+    \item Text-based methods are more prompt-sensitive and string-level metrics amplify small decoding differences, leading to higher variance.
+    \item Vocabulary overlap directly measures the fundamental model property (logit distribution)
+    \item Vocabulary overlap is prompt-agnostic once sufficient prompts are averaged
+\end{itemize}
 
-\subsection{Bottom-k Vocabulary Subspace Results}
+\subsection{Distinguishing Between Model Versions: A Three-Group Analysis}
 
-\subsubsection{Vocabulary Overlap}
+A natural question arises: can our method distinguish between models from \textit{different versions} of the same model family? To investigate this, we introduced a third group of models:
+
+\begin{itemize}
+    \item \textbf{Same}: Models derived from Qwen2.5-0.5B (our target base model)
+    \item \textbf{Diff}: Models derived from TinyLlama (completely different architecture)
+    \item \textbf{Diff2}: Models derived from Qwen2-0.5B (same family, different version)
+\end{itemize}
+
+This setup tests whether vocabulary overlap can differentiate between:
+\begin{enumerate}
+    \item True derivatives vs. unrelated models (Same vs. Diff)
+    \item True derivatives vs. sibling models from the same family (Same vs. Diff2)
+\end{enumerate}
+
+\subsubsection{Distribution Analysis}
+
+Figure \ref{fig:3groups_dist} shows the overlap distribution for all three groups.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\textwidth]{fig/12.22/overlap_distribution_qwen_3groups.png}
+\caption{Distribution of vocabulary overlap scores for three model groups. Same-lineage models (Qwen2.5-0.5B derived) show high overlap (0.1--0.9), while both Diff (TinyLlama) and Diff2 (Qwen2-0.5B) show low overlap ($<$0.1). Diff2 models have slightly higher overlap than Diff models.}
+\label{fig:3groups_dist}
+\end{figure}
+
+\subsubsection{Threshold Adjustment}
+
+The original threshold ($\tau = 0.0082$) was optimized for two-class classification (Same vs. Diff). However, Qwen2-0.5B models exhibit slightly higher overlap with Qwen2.5-0.5B than TinyLlama models do, due to shared architectural similarities. This caused the original threshold to misclassify most Diff2 models as Same (only 5\% TNR for Diff2).
+
+We re-optimized the threshold to maximize overall accuracy across all three groups:
 
 \begin{table}[h]
 \centering
-\caption{Bottom-k vocabulary overlap ($k=2000$, averaged over 10 prompts)}
-\label{tab:vocab_overlap}
-\begin{tabular}{lcc}
+\caption{Threshold comparison for two-class vs. three-class classification}
+\label{tab:threshold_comparison}
+\begin{tabular}{lcccccc}
 \toprule
-\textbf{Model Pair Type} & \textbf{Qwen} & \textbf{TinyLLama} \\
+\textbf{Threshold} & \textbf{Value} & \textbf{AUC} & \textbf{Same TPR} & \textbf{Diff TNR} & \textbf{Diff2 TNR} & \textbf{Accuracy} \\
 \midrule
-Same-lineage & 0.68 $\pm$ 0.08 & 0.64 $\pm$ 0.09 \\
-Different-lineage & 0.22 $\pm$ 0.07 & 0.19 $\pm$ 0.06 \\
-\textbf{Gap} & \textbf{0.46} & \textbf{0.45} \\
+Old (2-class) & 0.0082 & 0.988 & 97.1\% & 100\% & 5.0\% & 67.9\% \\
+New (3-class) & 0.0719 & 0.937 & 84.5\% & 100\% & 99.0\% & 94.5\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Interpretation}: Same-lineage models share approximately 68\% of their bottom-2000 vocabulary, while unrelated models share only 22\% (close to random chance for a 2000/32000 subspace).
+\subsubsection{Key Findings}
 
-\subsubsection{Constrained Text Generation}
+\textbf{Trade-off Analysis}: The new threshold involves a trade-off:
+\begin{itemize}
+    \item \textbf{Cost}: Same-lineage TPR decreases from 97.1\% to 84.5\% ($-$12.6\%)
+    \item \textbf{Benefit}: Diff2 TNR increases from 5.0\% to 99.0\% ($+$94\%)
+    \item \textbf{Net effect}: Overall accuracy improves from 67.9\% to 94.5\%
+\end{itemize}
 
-When both models are constrained to generate within the base model's bottom-k vocabulary:
+\textbf{Practical Implication}: The vocabulary overlap method can distinguish not only between unrelated model families (Qwen vs. TinyLlama), but also between different versions within the same family (Qwen2.5 vs. Qwen2). This is valuable for precise model provenance verification, as models from the same company but different generations have distinct fingerprints.
+
+\textbf{Why Diff2 Has Higher Overlap Than Diff}: Qwen2-0.5B and Qwen2.5-0.5B share the same decoder-only Transformer architecture and an aligned BBPE tokenizer family (with the same vocabulary size), which makes their low-probability token rankings more correlated than those of a different-family model (e.g., TinyLlama). Meanwhile, Qwen2.5 is trained with substantially updated pre-/post-training data and expands the set of control tokens, introducing measurable divergence in the bottom-k subspace; with an adjusted threshold, we can still separate true derivatives from sibling-version models. 
+
+
+\subsection{Ablation: Number of Fingerprint Prompts}
+
+We tested the effect of varying the number of prompts on text-based fingerprinting (Table \ref{tab:num_prompts}).
 
 \begin{table}[h]
 \centering
-\caption{Constrained generation similarity ($k=2000$, 20 fingerprints)}
-\label{tab:constrained_gen}
+\caption{Effect of number of prompts on text-based method (Qwen)}
+\label{tab:num_prompts}
 \begin{tabular}{lccc}
 \toprule
-\textbf{Relationship} & \textbf{LCS Ratio} & \textbf{Lev Sim} & \textbf{Overall} \\
+\textbf{\# Prompts} & \textbf{AUC} & \textbf{Best Threshold} & \textbf{TPR @ Threshold} \\
 \midrule
-Qwen Same-lineage & 0.79 $\pm$ 0.09 & 0.76 $\pm$ 0.10 & 0.78 $\pm$ 0.08 \\
-Qwen Diff-lineage & 0.21 $\pm$ 0.08 & 0.19 $\pm$ 0.07 & 0.20 $\pm$ 0.07 \\
-\textbf{Gap} & \textbf{0.58} & \textbf{0.57} & \textbf{0.58} \\
+5 & 0.779 & 0.203 & 0.569 \\
+10 & 0.816 & 0.108 & 0.788 \\
+20 & 0.830 & 0.152 & 0.769 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Key Finding}: Constraining generation to the base model's bottom-k vocabulary amplifies the difference between same and different lineage models, achieving even better separation than unconstrained generation.
+\textbf{Conclusion}: More prompts improve AUC, but even 20 prompts cannot match vocabulary overlap's 0.988 AUC.
 
-\subsection{Comparison of Approaches}
+\subsection{Ablation: Bottom-k Size}
+
+We tested different bottom-k values for the text-based method (Table \ref{tab:bottomk_ablation}).
 
 \begin{table}[h]
 \centering
-\caption{Comparison of fingerprinting approaches (Qwen models)}
-\label{tab:approach_comparison}
-\begin{tabular}{lccc}
+\caption{Effect of bottom-k size on text-based method}
+\label{tab:bottomk_ablation}
+\begin{tabular}{lcccc}
 \toprule
-\textbf{Method} & \textbf{Same Score} & \textbf{Diff Score} & \textbf{Gap} \\
+\textbf{$k$} & \textbf{AUC} & \textbf{Best Threshold} & \textbf{TPR} & \textbf{FPR} \\
 \midrule
-RoFL-style ($k=50$) & 0.74 & 0.15 & 0.59 \\
-RoFL-style ($k=2000$) & 0.82 & 0.11 & 0.71 \\
-Vocab Overlap & 0.68 & 0.22 & 0.46 \\
-Constrained Gen & 0.78 & 0.20 & 0.58 \\
+1000 & 0.851 & 0.080 & 0.818 & 0.105 \\
+2000 & 0.813 & 0.119 & 0.629 & 0.017 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Conclusion}: RoFL-style with large $k$ provides the best discrimination, but vocabulary overlap offers a faster alternative for initial screening.
+\textbf{Observation}: Smaller $k$ (1000) gives higher AUC but lower precision (higher FPR). Larger $k$ (2000) is more conservative.
 
+% TODO: Add constrained decoding results if available
+% From result_11.24/contraint/roc_analysis_results.csv: Qwen AUC=0.913, TinyLlama AUC=0.944
+
+%==============================================================================
+\section{Method Evolution}
+%==============================================================================
+
+This section documents how our approach evolved through systematic experimentation, explaining the rationale behind design decisions.
+
+\subsection{Phase 1: Initial Exploration (September -- October)}
+
+\textbf{Goal}: Understand RoFL fingerprinting and build a working pipeline.
+
+\textbf{Approach}:
+\begin{itemize}
+    \item Studied the RoFL paper and llm-attacks codebase to understand GCG-based fingerprinting
+    \item Implemented a simplified pipeline without GCG optimization (random prefix + bottom-k sampling)
+    \item Built data loading infrastructure supporting multiple model types: fine-tuned (SFT), quantized (4-bit, 8-bit), and adapter-based (LoRA) models
+    \item Tested on a few hand-picked model pairs (different base models with their corresponding derived models) to verify code correctness
+\end{itemize}
+
+\textbf{Key Observations}:
+\begin{itemize}
+    \item The simplified approach (without GCG) was feasible and much faster than full adversarial optimization
+    \item Full GCG optimization was too computationally expensive for large-scale experiments
+\end{itemize}
+
+\textbf{Decision}: Focus on two base models with large sets of fine-tuned (SFT) derived models for systematic cross-testing. Quantized and adapter-based models were deprioritized for this phase to first validate the core methodology.
+
+\subsection{Phase 2: Scaling Up (October -- November)}
+
+\textbf{Goal}: Test on larger set of derived models.
+
+\textbf{Experiments}:
+\begin{itemize}
+    \item Expanded to $\sim$100 Qwen and TinyLlama derived models
+    \item Tested with 5 fingerprint pairs, $k_{\text{bottom}}=50$
+    \item Generated fingerprints on derived models, evaluated on base models
+\end{itemize}
+
+\textbf{Key Finding}: Clear separation between same-lineage and different-lineage models emerged, but high variance with only 5 fingerprints (AUC $\approx$ 0.78).
+
+\textbf{Decision}: Increase number of fingerprints and explore alternative approaches.
+
+\subsection{Phase 3: Hyperparameter Tuning (November)}
+
+\textbf{Goal}: Optimize number of fingerprints and bottom-k size.
+
+\textbf{Experiments}:
+\begin{itemize}
+    \item Varied fingerprint count: 5, 10, 20
+    \item Tested bottom-k values: 50, 100, 500, 1000, 2000
+    \item Analyzed individual metrics ($\mathrm{PAL}_k$, LCS, Levenshtein) separately
+\end{itemize}
+
+\textbf{Key Findings}:
+\begin{itemize}
+    \item More fingerprints (20+) reduce variance but gains plateau
+    \item LCS ratio and Levenshtein similarity are more discriminative than $\mathrm{PAL}_k$
+    \item Text-based method AUC capped around 0.83 even with optimal settings
+\end{itemize}
+
+\textbf{Decision}: Text-based approach has fundamental limitations; explore vocabulary-level analysis.
+
+\subsection{Phase 4: Vocabulary Overlap -- Derived Model Generates Fingerprint (December)}
+
+\textbf{Goal}: Test whether bottom-k vocabulary sets provide cleaner signal than text comparison.
+
+\textbf{Hypothesis}: Standard fine-tuning tends to preserve much of the base model's token-ranking structure in the low-probability tail. Therefore, derived models should exhibit a higher overlap in bottom-k token sets (computed from next-token logits) than unrelated models, with only moderate perturbations introduced by fine-tuning.
+
+\textbf{Setup}: Each \textit{derived model} generates its own fingerprint (bottom-k vocabulary set), which is then compared against the base model's bottom-k set.
+\begin{itemize}
+    \item Computed vocabulary overlap: $|\text{bottomk}_{\text{base}} \cap \text{bottomk}_{\text{derived}}| / k$
+    \item Tested with $k=2000$ and 5 prompts per model
+    \item Compared same-lineage vs. different-lineage distributions
+\end{itemize}
+
+\textbf{Results}:
+\begin{itemize}
+    \item Same-lineage models: average overlap 0.45 (Qwen), 0.55 (TinyLlama)
+    \item Different-lineage models: average overlap $<$ 0.01 (near-random)
+    \item \textbf{AUC: 0.944 (Qwen), 0.981 (TinyLlama)}---significant improvement over text-based methods
+\end{itemize}
+
+\textbf{Key Insight}: Vocabulary overlap captures a more fundamental property than text similarity---the structure of the logit distribution is remarkably stable under fine-tuning.
+
+\subsection{Phase 5: Fixed Base Fingerprint (December)}
+
+\textbf{Goal}: Simplify the pipeline by having the base model generate a fixed fingerprint, then test all derived models against it.
+
+\textbf{Key Change}: Instead of each derived model generating its own fingerprint, the \textit{base model} generates a fixed set of fingerprint prompts. All candidate models are then evaluated using this same prompt set.
+
+\textbf{Rationale}: This approach is more practical for deployment---the base model owner generates fingerprints once, and any candidate model can be verified without needing to generate new prompts.
+
+\textbf{Results}:
+\begin{itemize}
+    \item \textbf{AUC improved: 0.988 (Qwen), 0.977 (TinyLlama)}
+    \item Accuracy: 98.6\% (Qwen), 96.7\% (TinyLlama)
+    \item The fixed fingerprint approach slightly outperforms the per-model approach
+\end{itemize}
+
+\textbf{Why Fixed Fingerprint Works Better}: Using a consistent prompt set from the base model reduces variance and ensures fair comparison. The base model's bottom-k vocabulary is the ``ground truth'' fingerprint, and derived models should closely match it.
+
+\textbf{Additional Experiment}: We also tested distinguishing between models from the same company but different versions (Qwen2.5-0.5B vs. Qwen2-0.5B derived models). Results showed that with appropriate threshold adjustment, our method can differentiate even between sibling model versions within the same family.
+
+%==============================================================================
 \section{Discussion}
+%==============================================================================
 
-\subsection{Why Does Bottom-k Sampling Work?}
+\subsection{Why Does Vocabulary Overlap Work?}
 
-The effectiveness of bottom-k sampling for fingerprinting can be understood through several mechanisms:
+The effectiveness of vocabulary overlap for fingerprinting can be understood through several mechanisms:
 
-\textbf{1. Weight Preservation}: Fine-tuning typically updates only a small fraction of model weights. The low-probability regions of the vocabulary distribution are less likely to be affected by task-specific fine-tuning, preserving the base model's characteristics.
+\textbf{1. Weight Preservation}: Fine-tuning typically updates only a small fraction of model weights. The low-probability regions of the vocabulary distribution are less likely to be affected by task-specific fine-tuning.
 
-\textbf{2. Model-Specific Biases}: Each model architecture and training procedure creates unique biases in the probability distribution over tokens. The bottom-k region captures these biases in a stable way.
+\textbf{2. Architecture-Specific Biases}: Each model architecture creates unique biases in how tokens are ranked. Models sharing an architecture (and base weights) will have similar bottom-k sets.
 
-\textbf{3. Deterministic Amplification}: By using greedy decoding, we remove the randomness of sampling and amplify small differences in the probability distributions into observable differences in generated text.
+\textbf{3. Stability Across Prompts}: Unlike generated text, which varies with prompts, the relative ranking of tokens is stable across different contexts for the same model.
+
+
+\subsection{Outliers: Why Do Some \textit{Same-lineage} Models Have Low Overlap?}
+
+Despite the general trend that same-lineage models exhibit higher bottom-$k$ overlap, we observe a non-trivial tail of low-overlap cases (Qwen2.5-0.5B: 33/103; TinyLlama-1.1B-Chat: 28/104 with overlap $<0.3$). Manual inspection suggests four common causes:
+
+\textbf{(1) Noisy lineage labels from hub metadata or name-based collection.}
+A substantial fraction of ``derived'' checkpoints are likely not initialized from the target base model (e.g., mismatched parameter scales such as 122M/127M vs. 1.1B, or different model families), which naturally yields near-zero overlap.
+
+\textbf{(2) Non-generative checkpoints (reward models / scorers / classifiers).}
+Some collected models are not standard CausalLMs (e.g., PRM/reward or toxicity scorers). Their outputs do not represent next-token vocabulary distributions, making bottom-$k$ overlap uninterpretable and often extremely small.
+
+\textbf{(3) Tokenizer/vocabulary misalignment.}
+Vocabulary-overlap is most meaningful when tokenizers are aligned. Tokenizer changes (added tokens, different vocabularies) can artificially deflate overlap even when architectures are similar.
+
+\textbf{(4) Strong model modifications.}
+Continued pretraining, pruning, or aggressive RL-style optimization can substantially reshape token rankings, including the low-probability tail, reducing overlap relative to standard fine-tuning.
+
+These findings motivate stricter filtering (requiring CausalLM heads and tokenizer alignment) and complementary signals (e.g., text-level fingerprints) to handle heterogeneous checkpoints.
+
+\section{Limitations \& Future Work}
 
 \subsection{Limitations}
 
-\subsubsection{Computational Cost}
+\textbf{Adversarial Robustness}: Our method assumes a non-adaptive setting where the suspect model is not actively trying to obfuscate its lineage. Potential evasion strategies include injecting noise into low-probability logits, modifying the tokenizer/vocabulary, or adversarial fine-tuning targeted at the tail distribution. We did not evaluate robustness under such attacks.
 
-Each fingerprint generation requires:
-\begin{itemize}
-    \item Loading the model (1-2 minutes for 0.5B-1B models)
-    \item Generating 20 fingerprints with 64-token prompts and responses
-    \item Total time: ~5-10 minutes per model on A100 GPU
-\end{itemize}
+\textbf{Scope of Model Modifications}: Our evaluation primarily focuses on standard fine-tuning and closely related variants (e.g., instruction tuning, LoRA/adapter, quantization). Stronger modifications such as continued pretraining, pruning, distillation, or RL-style optimization may significantly reshape token rankings and reduce bottom-$k$ overlap, potentially increasing false negatives.
 
-For large-scale model hub screening, this could be expensive.
+\textbf{Limited Base-Model Coverage}: Experiments are conducted on two base model families (Qwen2.5-0.5B and TinyLlama-1.1B-Chat). Generalization to other architectures, tokenizers, and scaling regimes (e.g., 7B+) remains to be validated.
 
-\subsubsection{Adversarial Robustness}
+\textbf{Tokenizer and Checkpoint Heterogeneity}: Vocabulary-overlap signals are most interpretable when models share an aligned tokenizer and a standard CausalLM head. In practice, model hubs contain heterogeneous checkpoints (e.g., reward models/scorers, classifier heads, or tokenizers with added/modified vocabulary), which can artificially deflate overlap and introduce label noise if not filtered carefully.
 
-Our method assumes the derived model is not intentionally trying to hide its lineage. Potential evasion strategies:
+\textbf{Threshold Sensitivity and Calibration}: The decision threshold is dataset- and family-dependent (e.g., the optimal threshold differs across Qwen vs. TinyLlama settings), suggesting that practical deployment may require per-family calibration or a validation set for threshold selection.
 
-\begin{itemize}
-    \item \textbf{Vocabulary Manipulation}: Modifying tokenizer or adding noise to low-probability tokens
-    \item \textbf{Output Perturbation}: Adding random noise to logits during generation
-    \item \textbf{Adversarial Fine-tuning}: Specifically training to diverge on bottom-k prompts
-\end{itemize}
 
-We did not evaluate robustness against these attacks.
+\subsection{Future Work}
 
-\subsubsection{Model Size Dependency}
+Based on the limitations above, several directions merit further investigation:
 
-All experiments were conducted on small models (0.5B-1B parameters). Larger models may:
-\begin{itemize}
-    \item Have more stable bottom-k subspaces (better discrimination)
-    \item Or more diverse fine-tuning (worse discrimination)
-\end{itemize}
-
-Further experiments on 7B+ models are needed.
-
-\subsection{Practical Implications}
-
-\subsubsection{Model Hub Verification}
-
-Our method could be deployed to verify model lineage claims on platforms like HuggingFace Hub:
-
-\begin{enumerate}
-    \item User uploads a model claiming to be derived from base model X
-    \item Platform runs fingerprinting pipeline (5-10 minutes)
-    \item If similarity score $> 0.6$, lineage is likely genuine
-    \item If score $< 0.3$, claim is likely false
-\end{enumerate}
-
-\subsubsection{IP Protection}
-
-Model creators could:
-\begin{itemize}
-    \item Generate and store fingerprints for their base models
-    \item Use these to detect unauthorized fine-tuned derivatives
-    \item Provide evidence in IP disputes
-\end{itemize}
-
-\subsubsection{Safety Monitoring}
-
-For safety-aligned models:
-\begin{itemize}
-    \item Monitor for fine-tuned versions that may have removed safety guardrails
-    \item Detect if a model claiming to be "safe" is actually derived from an unsafe base
-\end{itemize}
-
-\section{Future Work}
-
-\subsection{Short-term Extensions}
-
-\textbf{1. Full RoFL with GCG}: Implement the complete RoFL pipeline with adversarial prompt optimization to see if it further improves discrimination.
-
-\textbf{2. Larger Models}: Test on 7B, 13B, and 70B parameter models to understand scaling behavior.
-
-\textbf{3. More Model Types}: Evaluate on:
-\begin{itemize}
-    \item Instruction-tuned models (e.g., Instruct, Chat variants)
-    \item Domain-adapted models (e.g., medical, legal, code)
-    \item LoRA and adapter-based fine-tuning
-    \item Quantized models (4-bit, 8-bit)
-\end{itemize}
-
-\textbf{4. Adversarial Robustness}: Test against evasion attacks and develop robust variants.
-
-\subsection{Long-term Research Directions}
-
-\textbf{1. Multi-Generation Lineage}: Detect lineage across multiple fine-tuning steps (e.g., base → instruct → specialized).
-
-\textbf{2. Partial Fine-tuning Detection}: Determine which layers were fine-tuned (e.g., LoRA rank, adapter layers).
-
-\textbf{3. Training Data Inference}: Use fingerprints to infer properties of the fine-tuning dataset.
-
-\textbf{4. Cross-Architecture Detection}: Extend to detect knowledge distillation across different architectures.
-
-\textbf{5. Theoretical Analysis}: Develop formal guarantees on false positive/negative rates under different fine-tuning regimes.
+\textbf{Adversarial Robustness}: Evaluate evasion strategies (e.g., tail-logit noise, tokenizer changes, targeted tail fine-tuning) and develop defenses.
+    
+\textbf{Broader Model Coverage}: Extend experiments to larger models (7B--70B) and additional base families/architectures to assess scaling behavior and cross-family generalization.
+    
+\textbf{Beyond Standard Fine-tuning}: Study stronger modifications such as continued pretraining, pruning, distillation, and RL-style optimization to characterize when bottom-$k$ stability breaks and how to mitigate false negatives.
+    
+\textbf{Multi-generation Lineage}: Detect lineage across multiple stages (base $\rightarrow$ instruct $\rightarrow$ domain-specialized) and infer intermediate ancestors.
+    
+\textbf{Tokenizer-Aware Comparisons}: Develop overlap metrics that remain meaningful under tokenizer/vocabulary mismatches.
+    
+\textbf{Theoretical Analysis}: Provide formal or empirical guarantees on tail-rank stability and derive bounds on false positive/negative rates under different fine-tuning regimes.
 
 \section{Conclusion}
 
-This work demonstrates that fingerprinting techniques requiring only forward-pass logit access can reliably detect lineage relationships between language models. Through extensive experiments on over 100 model pairs, we show that:
+In this report, we investigated logit-access fingerprinting methods for language model lineage detection and found that bottom-$k$ vocabulary overlap provides a strong and practical signal for provenance verification. Across more than 100 candidate models for each base family (Qwen2.5-0.5B and TinyLlama-1.1B-Chat), the overlap method achieves near-perfect discrimination between same-lineage and different-lineage models (AUC 0.988 for Qwen and 0.977 for TinyLlama), substantially outperforming our text-based RoFL-style fingerprints under comparable compute budgets. The approach is simple and efficient---it requires only forward-pass next-token logits, avoids gradient computation and prompt optimization, and becomes stable by averaging over a small number of fixed prompts. While we also identify important failure modes (noisy lineage metadata, non-generative checkpoints, tokenizer mismatches, and stronger model modifications), our results suggest that tail-distribution structure is sufficiently preserved under standard fine-tuning to support reliable lineage verification in open-source model hubs.
 
-\begin{enumerate}
-    \item \textbf{RoFL-style fingerprinting} (random prefix + bottom-k sampling) achieves 0.59-0.71 score separation between same and different lineage models
-    \item \textbf{Bottom-k vocabulary overlap} provides a fast screening method with 0.46 separation
-    \item \textbf{Constrained generation} within bottom-k subspaces amplifies differences and achieves 0.58 separation
-    \item Optimal hyperparameters are 20 fingerprints and $k=1000-2000$ for bottom-k sampling
-\end{enumerate}
-
-These methods are practical and efficient, requiring only forward-pass access to model logits (available in all open-source models via HuggingFace Transformers). They have immediate applications in model provenance verification, IP protection, and safety monitoring.
-
-The code and experimental results are available at: \url{https://github.com/[your-repo]/model_lineage}
+% TODO: Add code/data availability statement
+% The code and experimental results are available at: \url{https://github.com/[your-repo]/model_lineage}
 
 \section*{Acknowledgments}
 
-I would like to thank Andreas Kellas for his guidance and mentorship throughout this project. His insights on watermarking techniques and experimental design were invaluable. I am also grateful to Yun-Yun Tsai for her participation and valuable suggestions, particularly for proposing the watermarking-based approach as a more suitable direction for this work. Additionally, I thank the Columbia NLP group for providing computational resources.
+I would like to thank Andreas Kellas for his guidance and mentorship throughout this project. I am also grateful to Yun-Yun Tsai for her participation and valuable suggestions.
 
 \bibliographystyle{unsrt}
 \bibliography{references}
 
-\end{document}
+%==============================================================================
+\appendix
+\section{Appendix}
+%==============================================================================
 
+\subsection{Code and Data Availability}
+
+The code, experimental scripts, and detailed results are available at: \url{https://github.com/KimAu197/llm_fingerprint}
+
+\subsection{Detailed Experimental Results}
+
+This section presents additional experimental results from different phases of the project.
+
+\subsubsection{Phase 2: Initial Text-Based Fingerprinting (October 10)}
+
+Early experiments using text-based fingerprinting on Qwen and TinyLlama models.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/10.10/qwen2.0_distribution_same_vs_diff.png}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/10.10/tinyllama_distribution_same_vs_diff.png}
+\end{minipage}
+\caption{Distribution of text-based fingerprint scores for Qwen (left) and TinyLlama (right) in Phase 2.}
+\label{fig:phase2_dist}
+\end{figure}
+
+\subsubsection{Phase 3: Per-Metric Analysis (November 10)}
+
+Detailed analysis of individual metrics ($\mathrm{PAL}_k$, LCS ratio, Levenshtein similarity) for both model families.
+
+\textbf{Qwen Models:}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/11.10/qwen_dist_lcs_ratio_mean.png}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/11.10/qwen_dist_lev_sim_mean.png}
+\end{minipage}
+\caption{Qwen: Distribution of LCS ratio (left) and Levenshtein similarity (right).}
+\label{fig:qwen_lcs_lev}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/11.10/qwen_dist_pal_k_mean.png}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/11.10/qwen_index_distribution.png}
+\end{minipage}
+\caption{Qwen: Distribution of $\mathrm{PAL}_k$ scores (left) and overall index distribution (right).}
+\label{fig:qwen_pal_index}
+\end{figure}
+
+\textbf{TinyLlama Models:}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/11.10/tinyllama_dist_lcs_ratio_mean.png}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/11.10/tinyllama_dist_lev_sim_mean.png}
+\end{minipage}
+\caption{TinyLlama: Distribution of LCS ratio (left) and Levenshtein similarity (right).}
+\label{fig:tinyllama_lcs_lev}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/11.10/tinyllama_dist_pal_k_mean.png}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/11.10/tinyllama_index_distribution.png}
+\end{minipage}
+\caption{TinyLlama: Distribution of $\mathrm{PAL}_k$ scores (left) and overall index distribution (right).}
+\label{fig:tinyllama_pal_index}
+\end{figure}
+
+\subsubsection{Hyperparameter Tuning Results (November 17)}
+
+Experiments varying the number of fingerprint prompts.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{fig/11.17/distribution_all_pairs.png}
+\caption{Distribution of fingerprint scores across all model pairs.}
+\label{fig:dist_all_pairs}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/11.17/confusion_matrix_all_pairs.png}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/11.17/roc_all_pairs.png}
+\end{minipage}
+\caption{Confusion matrix (left) and ROC curve (right) for hyperparameter tuning.}
+\label{fig:hp_tuning}
+\end{figure}
+
+\subsubsection{Bottom-k Vocabulary Overlap (November 24)}
+
+Initial experiments with vocabulary overlap approach.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/11.24/distribution_bottomk.png}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/11.24/confusion_matrix_bottomk.png}
+\end{minipage}
+\caption{Bottom-k vocabulary overlap: Distribution (left) and confusion matrix (right).}
+\label{fig:bottomk_nov24}
+\end{figure}
+
+\subsubsection{JS Divergence Experiments (December 1)}
+
+Exploring JS divergence as an alternative metric.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{fig/12.1/roc_analysis_js_divergence.png}
+\caption{ROC analysis using JS divergence metric.}
+\label{fig:js_divergence}
+\end{figure}
+
+\subsubsection{Phase 4: Text-Based vs. Word-Based Comparison (December 8)}
+
+Comparing text-based fingerprinting with vocabulary overlap.
+
+\textbf{Text-Based Method:}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/12.8/text/distribution_qwen.png}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/12.8/text/distribution_llama.png}
+\end{minipage}
+\caption{Text-based method: Distribution for Qwen (left) and TinyLlama (right).}
+\label{fig:text_dist_dec8}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/12.8/text/confusion_matrix_comparison.png}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/12.8/text/roc_comparison.png}
+\end{minipage}
+\caption{Text-based method: Confusion matrix (left) and ROC comparison (right).}
+\label{fig:text_metrics_dec8}
+\end{figure}
+
+\textbf{Word-Based (Vocabulary Overlap) Method:}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/12.8/word/distribution_qwen.png}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/12.8/word/distribution_llama.png}
+\end{minipage}
+\caption{Word-based method: Distribution for Qwen (left) and TinyLlama (right).}
+\label{fig:word_dist_dec8}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/12.8/word/confusion_matrix_comparison.png}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/12.8/word/roc_comparison.png}
+\end{minipage}
+\caption{Word-based method: Confusion matrix (left) and ROC comparison (right).}
+\label{fig:word_metrics_dec8}
+\end{figure}
+
+\subsubsection{Phase 5: Fixed Base Fingerprint (December 15)}
+
+Final experiments with base model generating fixed fingerprints.
+
+\textbf{Text-Based Method:}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/12.15/text_confusion_matrix_comparison.png}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/12.15/text_roc_comparison.png}
+\end{minipage}
+\caption{Text-based method (Phase 5): Confusion matrix (left) and ROC comparison (right).}
+\label{fig:text_metrics_dec15}
+\end{figure}
+
+\textbf{Word-Based (Vocabulary Overlap) Method:}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/12.15/overlap_distribution_qwen.png}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/12.15/overlap_distribution_llama.png}
+\end{minipage}
+\caption{Vocabulary overlap distribution for Qwen (left) and TinyLlama (right) in Phase 5.}
+\label{fig:word_dist_dec15}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/12.15/wordlist_confusion_matrix_comparison.png}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/12.15/wordlist_roc_comparison.png}
+\end{minipage}
+\caption{Word-based method (Phase 5): Confusion matrix (left) and ROC comparison (right).}
+\label{fig:word_metrics_dec15}
+\end{figure}
+
+\subsubsection{Three-Group Classification (December 22)}
+
+Extended experiments including Qwen2-0.5B as a third group (Diff2).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.65\textwidth]{fig/12.22/overlap_distribution_qwen_3groups.png}
+\caption{Vocabulary overlap distribution for three groups: Same (Qwen2.5-0.5B derived), Diff (TinyLlama derived), and Diff2 (Qwen2-0.5B derived).}
+\label{fig:3groups_dist_appendix}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/12.22/confusion_matrix_3groups_new_threshold.png}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig/12.22/roc_curve_new.png}
+\end{minipage}
+\caption{Three-group classification: Confusion matrix with new threshold (left) and ROC curve (right).}
+\label{fig:3groups_metrics}
+\end{figure}
+
+\end{document}
