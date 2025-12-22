@@ -1,279 +1,245 @@
-# Model Lineage Testing
+# LLM Fingerprinting for Model Lineage Detection
 
-Tools for detecting whether a language model is derived (finetuned) from a base model.
+Tools for detecting whether a language model is derived (fine-tuned) from a specific base model using only forward-pass access to model logits.
+
+## Overview
+
+This repository implements two complementary fingerprinting approaches:
+
+1. **Text-Based Fingerprinting (RoFL-style)**: Generate unique prompts using random prefix + bottom-k sampling, then compare generated text responses
+2. **Vocabulary Overlap (Bottom-k Subspace)**: Directly compare the low-probability token sets between models
+
+**Key Finding**: Vocabulary overlap significantly outperforms text-based methods, achieving **AUC 0.988** (Qwen2.5-0.5B) and **0.977** (TinyLlama-1.1B-Chat) for distinguishing same-lineage from different-lineage models.
 
 ## Table of Contents
 
-- [RoFL Fingerprinting (Random + Bottom-k Sampling)](#rofl-fingerprinting-random--bottom-k-sampling)
-- [Watermarking (Bottom-k Fingerprinting)](#watermarking-bottom-k-fingerprinting)
-- [Other Methods](#other-methods)
+- [Quick Start](#quick-start)
+- [Methods](#methods)
+  - [Text-Based Fingerprinting](#text-based-fingerprinting-rofl-style)
+  - [Vocabulary Overlap](#vocabulary-overlap-bottom-k-subspace)
+- [Results](#results)
+- [Project Structure](#project-structure)
 
 ---
 
-## RoFL Fingerprinting (Random + Bottom-k Sampling)
+## Quick Start
 
-Located in `fingerprint_old/`
+### Installation
 
-### Overview
+```bash
+# Clone the repository
+git clone https://github.com/KimAu197/llm_fingerprint.git
+cd llm_fingerprint
 
-This method implements the RoFL (Robust Fingerprinting of Large Language Models) approach to detect model lineage. The core idea is to generate unique fingerprints using a two-stage sampling strategy and compare the deterministic responses between models.
+# Install dependencies
+pip install torch transformers pandas numpy scikit-learn matplotlib
+```
 
-### Method
+### Run Vocabulary Overlap Detection (Recommended)
 
-**Step 1: Generate Fingerprint (x', y) on Candidate Model (Fine-tuned)**
+```bash
+cd watermarking
 
-1. **Prompt Generation (x')**:
-   - First `n` tokens: Random sampling from vocabulary (excluding special tokens)
-   - Remaining `l` tokens: Bottom-k sampling (select from k tokens with lowest probability)
-   - Default: `n=8`, `total_len=64`, `k_bottom=50`
+# Test if models are derived from Qwen2.5-0.5B
+python new/run_bottomk_subspace_overlap_from_base.py \
+    --base_model_name "Qwen/Qwen2.5-0.5B" \
+    --derived_model_csv "../data/qwen2_5_0.5B_ft.csv" \
+    --num_pairs 5 \
+    --bottom_k_vocab 2000 \
+    --csv_path "results/overlap_results.csv"
+```
 
-2. **Response Generation (y)**:
-   - Use greedy decoding (temperature=0) to generate deterministic response
-   - This creates the fingerprint pair `(x', y)`
-
-**Step 2: Verify on Suspect Model (Base Model)**
-
-1. Use the same fingerprint prompt `x'`
-2. Generate response `suspect_y` with greedy decoding
-3. Compare text similarity between `base_y` and `suspect_y`
-
-**Step 3: Similarity Metrics**
-
-Three metrics are used to measure similarity:
-- **Prefix Match (PAL_k)**: Whether first k characters match exactly
-- **LCS Ratio**: Longest Common Subsequence similarity (edit distance)
-- **Signature Overlap**: Overlap rate of long words (≥6 chars)
-
-Final lineage score = average of the three metrics (0-1, higher = more likely derived)
-
-### Quick Start
-
-**Generate and Evaluate Fingerprints**
+### Run Text-Based Detection
 
 ```bash
 cd fingerprint_old
 
-# Run batch evaluation on multiple fine-tuned models
 python test_batch.py \
     --model_list_csv "../data/qwen2_5_0.5B_ft.csv" \
-    --suspect_model "Qwen/Qwen2-0.5B" \
-    --num_pairs 20 \
-    --k_bottom 50 \
-    --prompt_style raw \
-    --csv_path "lineage_scores.csv" \
-    --save_report_dir "eval_reports/" \
-    --k_prefix 30 \
-    --relation same
-```
-
-**Or use the pipeline script**
-
-```bash
-python fingerprint_pipeline.py \
-    --model_list_csv "../data/qwen2_5_0.5B_ft.csv" \
-    --suspect_model "Qwen/Qwen2-0.5B" \
+    --suspect_model "Qwen/Qwen2.5-0.5B" \
     --num_pairs 20 \
     --k_bottom 50 \
     --csv_path "lineage_scores.csv"
 ```
 
-### Parameters
-
-- `--model_list_csv`: CSV file containing candidate models (must have `model_id` column)
-- `--suspect_model`: Base model to test against (HuggingFace model ID)
-- `--num_pairs`: Number of fingerprint pairs to generate per model (default: 20)
-- `--k_bottom`: Size of bottom-k sampling pool (default: 50)
-- `--prompt_style`: Prompt format - `raw`, `oneshot`, or `chatml` (default: `raw`)
-- `--k_prefix`: Prefix length for PAL_k metric (default: 30)
-- `--relation`: Relationship label - `same` or `diff` (for organizing results)
-- `--csv_path`: Output CSV file for lineage scores
-- `--save_report_dir`: Directory to save detailed evaluation reports (JSON)
-
-### Input Format
-
-The model list CSV should have a `model_id` column:
-
-```csv
-model_id
-user/qwen2-0.5b-finetune-v1
-user/qwen2-0.5b-finetune-v2
-another-user/qwen2-variant
-```
-
-### Output
-
-**1. Lineage Scores CSV** (`lineage_scores.csv`)
-
-Contains aggregated metrics for each model pair:
-
-```csv
-base_model_name,suspect_model_name,relation,num_pairs,k_prefix,pal_chars_mean,pal_k_mean,lev_sim_mean,lcs_ratio_mean,score_mean
-user/qwen2-ft,Qwen/Qwen2-0.5B,same,20,30,45.2,0.85,0.72,0.68,0.75
-```
-
-**2. Evaluation Reports** (`eval_report_{model}.json`)
-
-Detailed per-fingerprint results:
-
-```json
-{
-  "base_model_name": "user/qwen2-ft",
-  "suspect_model_name": "Qwen/Qwen2-0.5B",
-  "prompt_style": "raw",
-  "num_pairs": 20,
-  "records": [
-    {
-      "fingerprint": "x' prompt text...",
-      "base_y": "response from candidate model...",
-      "suspect_y": "response from suspect model..."
-    }
-  ]
-}
-```
-
-### Key Files
-
-- `test_batch.py`: Main batch evaluation script with all utilities
-- `fingerprint_pipeline.py`: Simplified pipeline wrapper
-- `fingerprint_tools.py`: Core fingerprint generation and evaluation functions
-- `suspect_wrappers.py`: Model wrapper classes for uniform API
-- `model_utils.py`: Model loading utilities
-- `cleanup.py`: Memory cleanup utilities
-
-### Notes
-
-- All generation uses **greedy decoding** (do_sample=False) for deterministic results
-- Special tokens (BOS, EOS, PAD, UNK) are excluded from random/bottom-k sampling
-- Set `seed=42` for reproducibility
-- Models are loaded with `device_map="auto"` for automatic GPU allocation
-- Memory is cleaned up between model loads to prevent OOM errors
-
 ---
 
-## Watermarking (Bottom-k Fingerprinting)
+## Methods
 
-Located in `watermarking/new/`
+### Text-Based Fingerprinting (RoFL-style)
 
-### Quick Start
+Located in `fingerprint_old/`
 
-**1. Subspace Overlap Detection**
+**Concept**: Generate unique fingerprint prompts using bottom-k sampling, then compare the deterministic responses between models.
 
-Test if derived models share the same bottom-k vocabulary as a base model:
+**Pipeline**:
+1. **Generate Fingerprint Prompt (x')**: 
+   - First n tokens: Random sampling from vocabulary
+   - Remaining tokens: Bottom-k sampling (lowest probability tokens)
+2. **Generate Response (y)**: Greedy decoding for deterministic output
+3. **Compare Responses**: Measure similarity using PAL-k, LCS ratio, and Levenshtein distance
 
-```bash
-cd watermarking
+**Metrics**:
+- **$\mathrm{PAL}_k$**: Prefix Agreement Length (first k characters match)
+- **LCS Ratio**: Longest Common Subsequence / max length
+- **Lev Similarity**: 1 - (edit distance / max length)
 
-python new/run_bottomk_subspace_overlap_from_base.py \
-    --base_model_name "Qwen/Qwen2.5-0.5B" \
-    --derived_model_csv "../data/qwen_derived_models.csv" \
-    --num_pairs 10 \
-    --bottom_k_vocab 2000 \
-    --csv_path "results/overlap_results.csv"
-```
+**Typical AUC**: 0.6 - 0.83 (varies with settings)
 
-**2. Text Similarity Detection**
+### Vocabulary Overlap (Bottom-k Subspace)
 
-Compare bottom-k constrained text generation between base and derived models:
+Located in `watermarking/`
 
-```bash
-python new/run_bottomk_lineage_pipeline_text_from_base.py \
-    --base_model_name "Qwen/Qwen2.5-0.5B" \
-    --derived_model_csv "../data/qwen_derived_models.csv" \
-    --num_pairs 10 \
-    --bottom_k_vocab 2000 \
-    --csv_path "results/text_results.csv"
-```
+**Concept**: The bottom-k vocabulary (tokens with lowest logits) is remarkably stable under fine-tuning. Derived models share similar low-probability token distributions with their base model.
 
-**3. Visualize Results**
+**Pipeline**:
+1. Generate fingerprint prompts from the base model
+2. For each prompt, compute bottom-k token sets for both base and candidate models
+3. Calculate overlap ratio: $|\text{bottomk}_{\text{base}} \cap \text{bottomk}_{\text{cand}}| / k$
 
-Plot distribution histograms comparing same-lineage vs different-lineage models:
+**Key Parameters**:
+- `bottom_k_vocab`: 2000 (recommended)
+- `num_pairs`: 5 fingerprint prompts for averaging
 
-```bash
-# Overlap ratio distribution
-python new/visualization/plot_overlap_distribution.py \
-    --same_csv results/overlap_same.csv \
-    --diff_csv results/overlap_diff.csv \
-    --output_dir results/figures/ \
-    --model_name qwen
-
-# Text similarity metrics distribution
-python new/visualization/plot_text_metrics_distribution.py \
-    --same_csv results/text_same.csv \
-    --diff_csv results/text_diff.csv \
-    --output_dir results/figures/ \
-    --model_name qwen
-```
-
-### Input Format
-
-The derived model CSV should have a `model_id` column:
-
-```csv
-model_id
-user/model-finetune-v1
-user/model-finetune-v2
-another-user/model-variant
-```
-
-### Output
-
-- **Overlap pipeline**: `avg_overlap_ratio` (0-1), higher = more likely derived
-- **Text pipeline**: `avg_pal_k`, `avg_lev_sim`, `avg_lcs_ratio`, `avg_score` (0-1)
-- **Error marker**: `-1.0` indicates failed model load (filter out in analysis)
-
-For detailed documentation, see `watermarking/README.md`.
-
----
-
-## Other Methods
-
-*Coming soon...*
+**Performance**:
+| Model | AUC | Threshold | Accuracy |
+|-------|-----|-----------|----------|
+| Qwen2.5-0.5B | 0.988 | 0.0082 | 98.6% |
+| TinyLlama-1.1B-Chat | 0.977 | 0.0254 | 96.7% |
 
 ---
 
 ## Results
 
-Experiment results are stored in the following directories:
+### Experimental Summary
 
-- `result_10.10/`: Early experimental results
-- `result_11.17/`: November experiments with various settings
-- `result_12.1/`: December results comparing same vs different lineage
-- `result_12.15/`: Latest results with text and wordlist approaches
-  - `text/`: Text similarity based detection
-  - `wordlist/`: Vocabulary overlap based detection
-- `report_11.24/`: Analysis reports with distribution plots
-- `report_12.8/`: Comparative analysis for Llama and Qwen models
+We evaluated both methods on 100+ fine-tuned models per base model family:
 
-### Typical Workflow
+| Method | Qwen AUC | TinyLlama AUC | Speed |
+|--------|----------|---------------|-------|
+| Text-Based | 0.601 | 0.763 | Slower |
+| Vocabulary Overlap | **0.988** | **0.977** | Faster |
 
-1. **Generate fingerprints** on fine-tuned models
-2. **Evaluate** against base model to get similarity scores
-3. **Compare distributions** between same-lineage and different-lineage pairs
-4. **Visualize** results to determine detection threshold
+### Three-Group Classification
 
-### Expected Results
+We also tested distinguishing between:
+- **Same**: Models derived from Qwen2.5-0.5B
+- **Diff**: Models derived from TinyLlama (different architecture)
+- **Diff2**: Models derived from Qwen2-0.5B (same family, different version)
 
-For models with true lineage relationship (fine-tuned from base):
-- **PAL_k mean**: 0.7 - 0.9 (high prefix agreement)
-- **LCS ratio mean**: 0.6 - 0.8 (high sequence similarity)
-- **Lev sim mean**: 0.6 - 0.8 (high edit similarity)
-- **Overall score**: 0.7 - 0.85
+With threshold adjustment (0.0719), we achieve **94.5% overall accuracy** across all three groups.
 
-For unrelated models:
-- **PAL_k mean**: 0.0 - 0.2 (low prefix agreement)
-- **LCS ratio mean**: 0.1 - 0.3 (low sequence similarity)
-- **Lev sim mean**: 0.1 - 0.3 (low edit similarity)
-- **Overall score**: 0.1 - 0.25
+### Result Directories
+
+Experimental results are organized by date:
+
+```
+result/
+├── result_10.10/   # Initial text-based experiments
+├── result_11.10/   # Per-metric analysis (PAL-k, LCS, Lev)
+├── result_11.17/   # Hyperparameter tuning
+├── result_11.24/   # Initial vocabulary overlap experiments
+├── result_12.1/    # JS divergence experiments
+├── result_12.8/    # Text vs. word comparison (derived generates fingerprint)
+├── result_12.15/   # Fixed base fingerprint (base generates fingerprint)
+│   ├── text/       # Text similarity results
+│   └── wordlist/   # Vocabulary overlap results
+└── result_12.22/   # Three-group classification (Qwen2.5 vs Qwen2 vs TinyLlama)
+```
+
+---
+
+## Project Structure
+
+```
+llm_fingerprint/
+├── README.md                    # This file
+├── data/                        # Model lists for experiments
+│   ├── qwen2_5_0.5B_ft.csv     # Qwen2.5-0.5B fine-tuned models
+│   ├── qwen2_0.5B_ft.csv       # Qwen2-0.5B fine-tuned models
+│   └── tinyllama_ft.csv        # TinyLlama fine-tuned models
+├── fingerprint_old/             # Text-based fingerprinting (RoFL-style)
+│   ├── test_batch.py           # Main batch evaluation script
+│   ├── fingerprint_tools.py    # Core fingerprint generation
+│   ├── suspect_wrappers.py     # Model wrapper classes
+│   └── model_utils.py          # Model loading utilities
+├── watermarking/                # Vocabulary overlap methods
+│   ├── README.md               # Detailed documentation
+│   ├── new/                    # Main pipeline scripts
+│   │   ├── run_bottomk_subspace_overlap_from_base.py
+│   │   ├── run_bottomk_lineage_pipeline_text_from_base.py
+│   │   └── visualization/      # Plotting scripts
+│   ├── utils/                  # Shared utilities
+│   │   ├── bottomk_processor.py
+│   │   ├── fingerprint_gen.py
+│   │   ├── metrics.py
+│   │   └── model_loader.py
+│   └── legacy/                 # Older implementations
+└── result/                      # Experimental results
+```
+
+---
+
+## Input/Output Format
+
+### Input CSV
+
+Model list CSV should have a `model_id` column:
+
+```csv
+model_id
+user/qwen2-finetune-v1
+user/qwen2-finetune-v2
+another-user/model-variant
+```
+
+### Output CSV
+
+**Vocabulary Overlap**:
+```csv
+base_model_name,derived_model_name,avg_overlap_ratio,bottom_k_vocab_size
+Qwen/Qwen2.5-0.5B,user/model-ft,0.85,2000
+```
+
+**Text-Based**:
+```csv
+base_model_name,suspect_model_name,pal_k_mean,lev_sim_mean,lcs_ratio_mean,score_mean
+user/model-ft,Qwen/Qwen2.5-0.5B,0.85,0.72,0.68,0.75
+```
+
+### Error Handling
+
+Failed model loads are marked with `-1.0` in the output. Filter these when analyzing:
+
+```python
+df = df[df['avg_overlap_ratio'] != -1.0]
+```
+
+---
+
+## Key Findings
+
+1. **Vocabulary overlap captures a fundamental model property**: The structure of the logit distribution is remarkably stable under fine-tuning.
+
+2. **Text-based methods have limitations**: High variance due to generation stochasticity and prompt sensitivity.
+
+3. **Fixed base fingerprint works better**: Using consistent prompts from the base model reduces variance.
+
+4. **Sibling model detection is possible**: With threshold adjustment, we can distinguish between different versions of the same model family (e.g., Qwen2.5 vs Qwen2).
 
 ---
 
 ## Citation
 
-This implementation is based on the RoFL paper:
+This implementation draws inspiration from:
 
 ```
-Robust Fingerprinting of Large Language Models
+RoFL: Robust Fingerprinting of Large Language Models
+Kirchenbauer et al., A Watermark for Large Language Models
 ```
 
-For watermarking methods, see `watermarking/README.md` for detailed documentation.
+---
 
+## License
+
+MIT License
