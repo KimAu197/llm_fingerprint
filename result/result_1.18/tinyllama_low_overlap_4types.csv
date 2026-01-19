@@ -1,0 +1,5 @@
+type,total,models
+Specific Domain / Language / Task SFT,25,HachiML/TinyLlama2-jp-122M; HachiML/myBit-Llama2-jp-127M-test-5; HachiML/myBit-Llama2-jp-127M-test-9; HachiML/TinyLlama2-jp-122M-FlashAttention2; HachiML/myBit-Llama2-jp-127M-test-6; HachiML/myBit-Llama2-jp-127M-test-3; HachiML/myBit-Llama2-jp-127M-test-1; HachiML/myBit-Llama2-jp-127M-test-4; HachiML/Bit-Llama2-jp-122M-test-1; HachiML/myBit-Llama2-jp-127M-test-2; HachiML/myBit-Llama2-jp-127M-test-7; lleticiasilvaa/TinyLlama-text2SQL-schemaReduzido; lleticiasilvaa/TinyLlama-1.1B-GerarSQL-v2-identacao; lleticiasilvaa/TinyLlama-1.1B-GerarSQL-v1; lleticiasilvaa/TinyLlama-text2SQL-alias-indentacao-ourschema; lleticiasilvaa/TinyLlama-text2SQL-schemaReduzidoTabelas; HachiML/myBit-Llama2-jp-127M-test-8; HachiML/Bit-Llama2-jp-123M-test-1; HachiML/Llama2-jp-123M; ali77sina/tinyLlama-SEC-RAG-FT; yzhuang/TinyLlama-1.1B_fictional; HachiML/Bit-Llama2-jp-123M; yzhuang/phi-1_5_fictional; ManthanKulakarni/TinyLlama-1.1B-Text2SQL; yzhuang/TinyLlama-1.1B_fictional_v3
+Prune,1,RedHatAI/TinyLlama-1.1B-Chat-v1.0-pruned2.4
+TRL,1,qbitmaze/ibrain_0002q4
+Unknown,1,zrowt/results

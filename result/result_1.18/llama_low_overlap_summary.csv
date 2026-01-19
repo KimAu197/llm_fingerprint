@@ -1,0 +1,29 @@
+base_model_name,derived_model_name,type,avg_overlap_ratio
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,HachiML/TinyLlama2-jp-122M,Specific Domain / Language / Task SFT,0.0024
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,HachiML/myBit-Llama2-jp-127M-test-5,Specific Domain / Language / Task SFT,0.0042
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,HachiML/myBit-Llama2-jp-127M-test-9,Specific Domain / Language / Task SFT,0.0084
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,HachiML/TinyLlama2-jp-122M-FlashAttention2,Specific Domain / Language / Task SFT,0.0084999999999999
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,HachiML/myBit-Llama2-jp-127M-test-6,Specific Domain / Language / Task SFT,0.0125
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,HachiML/myBit-Llama2-jp-127M-test-3,Specific Domain / Language / Task SFT,0.0254
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,HachiML/myBit-Llama2-jp-127M-test-1,Specific Domain / Language / Task SFT,0.0409
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,HachiML/myBit-Llama2-jp-127M-test-4,Specific Domain / Language / Task SFT,0.0427
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,HachiML/Bit-Llama2-jp-122M-test-1,Specific Domain / Language / Task SFT,0.0453
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,HachiML/myBit-Llama2-jp-127M-test-2,Specific Domain / Language / Task SFT,0.051
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,HachiML/myBit-Llama2-jp-127M-test-7,Specific Domain / Language / Task SFT,0.0512
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,zrowt/results, Generic TRL / SFT / Unknown,0.0574
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,lleticiasilvaa/TinyLlama-text2SQL-schemaReduzido,TRL,0.0626
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,lleticiasilvaa/TinyLlama-1.1B-GerarSQL-v2-identacao,TRL,0.0627
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,lleticiasilvaa/TinyLlama-1.1B-GerarSQL-v1,TRL,0.064
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,lleticiasilvaa/TinyLlama-text2SQL-alias-indentacao-ourschema,TRL,0.0671
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,lleticiasilvaa/TinyLlama-text2SQL-schemaReduzidoTabelas,TRL,0.0713999999999999
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,HachiML/myBit-Llama2-jp-127M-test-8,Specific Domain / Language / Task SFT,0.0914
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,HachiML/Bit-Llama2-jp-123M-test-1,Specific Domain / Language / Task SFT,0.0974
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,HachiML/Llama2-jp-123M,Specific Domain / Language / Task SFT,0.1009
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,ali77sina/tinyLlama-SEC-RAG-FT,Specific Domain / Language / Task SFT,0.1146
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,yzhuang/TinyLlama-1.1B_fictional,Specific Domain / Language / Task SFT,0.1216
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,HachiML/Bit-Llama2-jp-123M,Specific Domain / Language / Task SFT,0.1379
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,qbitmaze/ibrain_0002q4,TRL,0.1598
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,yzhuang/phi-1_5_fictional,Specific Domain / Language / Task SFT,0.173
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,ManthanKulakarni/TinyLlama-1.1B-Text2SQL,Specific Domain / Language / Task SFT,0.1829
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,RedHatAI/TinyLlama-1.1B-Chat-v1.0-pruned2.4,Hybrid / Compression（Pruning / SparseGPT）,0.2323
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,yzhuang/TinyLlama-1.1B_fictional_v3,Specific Domain / Language / Task SFT,0.2823

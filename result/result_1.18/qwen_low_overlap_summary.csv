@@ -1,0 +1,34 @@
+base_model_name,derived_model_name,type,avg_overlap_ratio
+Qwen/Qwen2.5-0.5B,Bakanayatsu/runner-Qwen2.5-0.5B-v1,？,0.0001
+Qwen/Qwen2.5-0.5B,alamios/Qwemma-3-0.5B,Hybrid / tokenizer(vocab),0.004
+Qwen/Qwen2.5-0.5B,flyyufelix/Qwen-2.5-7B-Simple-RL,size,0.0059
+Qwen/Qwen2.5-0.5B,p1atdev/qwen2.5-0.5b-grpo-math-01,RL,0.0082
+Qwen/Qwen2.5-0.5B,alamios/Qwenstral-Small-3.1-0.5B,Hybrid / tokenizer(vocab),0.0125
+Qwen/Qwen2.5-0.5B,rdsm/QwenPhi-4-0.5b-Draft,Hybrid / tokenizer(vocab),0.0161
+Qwen/Qwen2.5-0.5B,Vikhrmodels/salt-qwen2.5-0.5b-tts,extensions that introduce audio token vocabularies,0.0162
+Qwen/Qwen2.5-0.5B,jiangchengchengNLP/qwen_0.5B_instruct_law_summarize,Strong field localization（SFT + Contrastive ranking）,0.0186
+Qwen/Qwen2.5-0.5B,alothomas/Qwen2.5-0.5B-PRM-RAD-balanced-150k,Reward/Scorer/Classifier,0.0231
+Qwen/Qwen2.5-0.5B,alothomas/Qwen2.5-0.5B-PRM-RAD-balanced-V3,Reward/Scorer/Classifier,0.0299
+Qwen/Qwen2.5-0.5B,petkopetkov/Qwen2.5-0.5B-song-lyrics-generation,domain-specific(? (TRL,0.0389
+Qwen/Qwen2.5-0.5B,tcapelle/toxicity-scorer-qwen-ct2,Reward/Scorer/Classifier,0.0392
+Qwen/Qwen2.5-0.5B,sail/Sailor2-1B-Pre,Hybrid “expanded from Qwen2.5 base” + model expansion,0.0424999999999999
+Qwen/Qwen2.5-0.5B,sail/Sailor2-1B,Hybrid “expanded from Qwen2.5 base” + model expansion,0.0435
+Qwen/Qwen2.5-0.5B,alothomas/Qwen2.5-0.5B-PRM-RAD-balanced-V4,Reward/Scorer/Classifier,0.0451
+Qwen/Qwen2.5-0.5B,ytzfhqs/Qwen2.5-med-book-main-classification,Classifier（文本分类）+ 强领域化（医学教材/OCR）,0.0504
+Qwen/Qwen2.5-0.5B,shb2024/Qwen-0.5B-AMR,domain-specific(? (TRL,0.0718999999999999
+Qwen/Qwen2.5-0.5B,tcapelle/toxicity-scorer-qwen,Reward/Scorer/Classifier,0.0723999999999999
+Qwen/Qwen2.5-0.5B,Aleksandr505/phishing-text-classifier-qwen-2.5-0.5B,Reward/Scorer/Classifier,0.0995
+Qwen/Qwen2.5-0.5B,DiamondGotCat/Prism-0.2,Multimodal 扩展 / Hybrid,0.132
+Qwen/Qwen2.5-0.5B,Qwen/Qwen2.5-Coder-0.5B,Code-specialized / Continued pretraining,0.1354
+Qwen/Qwen2.5-0.5B,JonhTheTrueKingoftheNorth/Qwen2.5-0.5b,domain-specific(? (TRL,0.1428
+Qwen/Qwen2.5-0.5B,EdBerg/outputs_qwen_100,domain-specific(? (TRL,0.1485
+Qwen/Qwen2.5-0.5B,josang1204/Qweb2.5-FT-CSY,domain-specific(? (TRL,0.1558999999999999
+Qwen/Qwen2.5-0.5B,JayHyeon/QWEN_toy-DPOP_5e-5-100ep_0alp_5lam,Preference Optimization（DPO / DPOP）RL,0.1572
+Qwen/Qwen2.5-0.5B,jhu-clsp/rank1-0.5b,Scorer/Ranker/Classifier,0.1874
+Qwen/Qwen2.5-0.5B,cavendishlabs/sftd_model_c03f6a40-3b64-4f9b-b5f3-dd704171c333,domain-specific(? (TRL,0.2024
+Qwen/Qwen2.5-0.5B,robertvacareanu/instruct-rl-Qwen2.5-0.5B-databricks-dolly-15k,RL,0.204
+Qwen/Qwen2.5-0.5B,minchyeom/bot3-0.5B,Instruct SFT,0.2509
+Qwen/Qwen2.5-0.5B,EdBerg/outputs_qwen_232,domain-specific(? (TRL,0.2617
+Qwen/Qwen2.5-0.5B,thundax/Qwen2.5-0.5B-Sign,强任务化（text → Chinese Sign 表达）/ 结构化输出类 SFT,0.2739
+Qwen/Qwen2.5-0.5B,Silin1590/Qwen-0d5B-Int-Soc-CoA,Instruct / Post-training,0.2845
+Qwen/Qwen2.5-0.5B,JayHyeon/Qwen2.5-0.5B_ultrainteract_sft_2e-5_1ep,domain-specific(? (TRL,0.2935999999999999

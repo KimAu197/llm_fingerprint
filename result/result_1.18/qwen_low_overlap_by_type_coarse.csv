@@ -1,0 +1,6 @@
+type,total,models
+Generic TRL / SFT / Unknown,9,Bakanayatsu/runner-Qwen2.5-0.5B-v1; JonhTheTrueKingoftheNorth/Qwen2.5-0.5b; EdBerg/outputs_qwen_100; josang1204/Qweb2.5-FT-CSY; cavendishlabs/sftd_model_c03f6a40-3b64-4f9b-b5f3-dd704171c333; minchyeom/bot3-0.5B; EdBerg/outputs_qwen_232; Silin1590/Qwen-0d5B-Int-Soc-CoA; JayHyeon/Qwen2.5-0.5B_ultrainteract_sft_2e-5_1ep
+Hybrid / Vocab / Multimodal / Expansion,8,alamios/Qwemma-3-0.5B; alamios/Qwenstral-Small-3.1-0.5B; rdsm/QwenPhi-4-0.5b-Draft; Vikhrmodels/salt-qwen2.5-0.5b-tts; sail/Sailor2-1B-Pre; sail/Sailor2-1B; DiamondGotCat/Prism-0.2; Qwen/Qwen2.5-Coder-0.5B
+Scoring / Ranking / Classifier,7,alothomas/Qwen2.5-0.5B-PRM-RAD-balanced-150k; alothomas/Qwen2.5-0.5B-PRM-RAD-balanced-V3; tcapelle/toxicity-scorer-qwen-ct2; alothomas/Qwen2.5-0.5B-PRM-RAD-balanced-V4; tcapelle/toxicity-scorer-qwen; Aleksandr505/phishing-text-classifier-qwen-2.5-0.5B; jhu-clsp/rank1-0.5b
+Specific Domain / Task SFT,5,jiangchengchengNLP/qwen_0.5B_instruct_law_summarize; petkopetkov/Qwen2.5-0.5B-song-lyrics-generation; ytzfhqs/Qwen2.5-med-book-main-classification; shb2024/Qwen-0.5B-AMR; thundax/Qwen2.5-0.5B-Sign
+RL / Preference-Optimization,4,flyyufelix/Qwen-2.5-7B-Simple-RL; p1atdev/qwen2.5-0.5b-grpo-math-01; JayHyeon/QWEN_toy-DPOP_5e-5-100ep_0alp_5lam; robertvacareanu/instruct-rl-Qwen2.5-0.5B-databricks-dolly-15k
