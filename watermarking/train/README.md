@@ -230,24 +230,3 @@ df = pd.read_csv("your_file.csv")
 print(df.columns)
 print(df.head())
 ```
-
-## Research Applications
-
-This tool helps answer:
-
-1. **Training dynamics**: How does overlap change as training progresses?
-2. **Linear relationship**: Is overlap decrease proportional to training steps?
-3. **Dataset influence**: Do different datasets cause different overlap patterns?
-4. **Early prediction**: Can we predict final overlap from early training?
-
-## Citation
-
-If you use this tool in your research, please cite the RoFL paper:
-
-```bibtex
-@article{rofl2023,
-  title={RoFL: Robust Fingerprinting of Large Language Models},
-  author={...},
-  year={2023}
-}
-```
