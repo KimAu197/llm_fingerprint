@@ -366,13 +366,29 @@ def load_and_prepare_dataset(
     
     # Tokenize
     def tokenize_function(examples):
-        """Tokenize text examples."""
-        return tokenizer(
+        """
+        Tokenize text examples.
+        
+        Note: Using padding=False for dynamic padding by DataCollatorForLanguageModeling.
+        This is more efficient than padding all sequences to max_length.
+        """
+        tokenized = tokenizer(
             examples["text"],
             truncation=True,
             max_length=max_length,
-            padding="max_length",
+            padding=False,  # Dynamic padding by data collator
         )
+        return tokenized
+    
+    # Print sample data for debugging
+    print(f"\n[data] Sample training data (first 3 examples):")
+    for i in range(min(3, len(dataset))):
+        sample_text = dataset[i]["text"]
+        print(f"  Example {i+1}: {len(sample_text)} chars")
+        print(f"    First 100 chars: {sample_text[:100]}")
+        if len(sample_text) > 100:
+            print(f"    Last 50 chars: ...{sample_text[-50:]}")
+        print()
     
     print(f"[data] Tokenizing {len(dataset)} samples...")
     tokenized_dataset = dataset.map(
@@ -381,6 +397,16 @@ def load_and_prepare_dataset(
         remove_columns=dataset.column_names,
         desc="Tokenizing dataset",
     )
+    
+    # Print tokenization stats
+    sample_lengths = [len(tokenized_dataset[i]["input_ids"]) for i in range(min(100, len(tokenized_dataset)))]
+    avg_length = sum(sample_lengths) / len(sample_lengths)
+    max_length_sample = max(sample_lengths)
+    min_length_sample = min(sample_lengths)
+    print(f"[data] Token length stats (first 100 samples):")
+    print(f"  Average: {avg_length:.1f} tokens")
+    print(f"  Min: {min_length_sample} tokens")
+    print(f"  Max: {max_length_sample} tokens")
     
     return tokenized_dataset
 
@@ -438,6 +464,9 @@ class OverlapEvaluationCallback(TrainerCallback):
         if current_step % self.eval_steps == 0 or current_step == 1:
             print(f"\n[eval] Evaluating overlap at step {current_step}...")
             
+            # CRITICAL: Set model to eval mode for consistent evaluation
+            model.eval()
+            
             overlap_scores = []
             for idx, fp in enumerate(self.fingerprints):
                 prompt_text = fp.get("x_prime", fp.get("prompt", ""))
@@ -454,6 +483,9 @@ class OverlapEvaluationCallback(TrainerCallback):
                 # Calculate overlap ratio
                 overlap = overlap_ratio(ft_bottomk, base_bottomk)
                 overlap_scores.append(overlap)
+            
+            # Return model to training mode
+            model.train()
             
             avg_overlap = sum(overlap_scores) / len(overlap_scores) if overlap_scores else 0.0
             

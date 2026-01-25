@@ -275,6 +275,25 @@ This tool uses the same overlap testing methodology from the `../new/` directory
 
 ## Troubleshooting
 
+### Understanding Overlap Changes
+
+**What is normal:**
+- Step 1: overlap = 1.0 (model hasn't changed yet)
+- Overlap decreases as training progresses (model is changing)
+- **How fast it decreases depends on**: learning rate, dataset, model size, training steps
+
+**The overlap decrease is NOT a bug** - it shows the model is learning and changing!
+
+**If you want slower changes:**
+```bash
+--learning_rate 1e-6  # Lower learning rate
+```
+
+**If you want faster changes:**
+```bash
+--learning_rate 2e-5  # Higher learning rate
+```
+
 ### NaN Loss / Gradient
 
 **Problem:** Loss becomes NaN during training
