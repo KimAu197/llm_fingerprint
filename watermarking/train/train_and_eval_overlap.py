@@ -539,7 +539,7 @@ def main():
         help="Size of bottom-k vocabulary for overlap computation"
     )
     parser.add_argument(
-        "--num_fingerprints", type=int, default=20,
+        "--num_fingerprints", type=int, default=5,
         help="Number of fingerprint prompts to generate for evaluation"
     )
     parser.add_argument(
@@ -563,6 +563,10 @@ def main():
     parser.add_argument(
         "--save_fingerprints", type=str, default=None,
         help="Path to save generated fingerprints (JSON file)"
+    )
+    parser.add_argument(
+        "--use_fp16", action="store_true",
+        help="Use FP16 mixed precision training (may cause issues on some systems)"
     )
     
     args = parser.parse_args()
@@ -704,7 +708,7 @@ def main():
         logging_steps=10,
         save_steps=args.save_steps,
         save_total_limit=3,
-        fp16=args.device == "cuda",
+        fp16=args.use_fp16,  # Only use FP16 if explicitly requested
         report_to="none",
         remove_unused_columns=True,
         dataloader_num_workers=4,

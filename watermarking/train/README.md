@@ -230,6 +230,17 @@ This tool uses the same overlap testing methodology from the `../new/` directory
 
 ## Troubleshooting
 
+### FP16 Gradient Scaling Error
+
+**Problem:** `ValueError: Attempting to unscale FP16 gradients`
+
+**Solution:** FP16 is now disabled by default. If you want to use it:
+```bash
+--use_fp16  # Add this flag to enable FP16
+```
+
+**Note:** FP16 can cause gradient scaling issues on some systems. Use FP32 (default) for stability.
+
 ### Downloading Too Much Data (Wikipedia)
 
 **Problem:** Wikipedia dataset is downloading all 41 files (~10GB)
@@ -256,7 +267,7 @@ Examples:
 ```bash
 --per_device_train_batch_size 2 \
 --gradient_accumulation_steps 8 \
---num_fingerprints 10
+--num_fingerprints 5
 ```
 
 ### Training Too Slow
