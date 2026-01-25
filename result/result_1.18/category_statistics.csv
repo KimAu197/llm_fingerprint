@@ -1,0 +1,17 @@
+Category,Description,Qwen Count,TinyLlama Count,Total Count,Avg Overlap (Qwen),Avg Overlap (TinyLlama),Overall Avg Overlap,Key Characteristics
+
+Category 1: TRL/Generic SFT,Models fine-tuned using TRL library or generic SFT with unclear methodology,9,7,16,0.1407,0.0686,0.1046,"Most common category; TRL's training approach causes significant fingerprint disruption"
+
+Category 2: Architecture/Vocab Changes,Models with tokenizer modifications or architectural changes (size/pruning/multimodal),8,1,9,0.0338,0.2323,0.0596,"Extreme low overlap due to fundamental structural changes; includes vocab expansion, model size changes, multimodal extensions"
+
+Category 3: Task Repurposing,Models repurposed as classifiers/scorers/rankers instead of generative models,8,0,8,0.0563,N/A,0.0563,"Task paradigm shift from generation to classification fundamentally alters weight distributions"
+
+Category 4: RL/Preference Optimization,Models trained with reinforcement learning or preference optimization (DPO/PPO/GRPO),3,0,3,0.1225,N/A,0.1225,"RL training dynamics cause different optimization trajectory than standard SFT"
+
+Category 5: Heavy Domain Specialization,Strong domain-specific fine-tuning (legal/medical/code/fictional content),3,5,8,0.1426,0.1603,0.1533,"Deep specialization in narrow domains; includes continued pretraining"
+
+Category 6: Standard Instruction Tuning,Conventional instruction-following fine-tuning,2,0,2,0.2677,N/A,0.2677,"Highest overlap among low-overlap cases; closest to 'normal' fine-tuning"
+
+Category 7: Cross-lingual Adaptation,Language adaptation (especially to non-Latin scripts like Japanese),0,15,15,N/A,0.0545,0.0545,"Extremely low overlap; language shift + often combined with model size reduction; Japanese models particularly affected"
+
+Total,All low-overlap cases,33,28,61,0.1073,0.0893,0.0989,"Overall average overlap is ~10%, well below typical same-lineage threshold"

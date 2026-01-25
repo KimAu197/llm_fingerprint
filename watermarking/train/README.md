@@ -22,12 +22,24 @@ pip install -r requirements_overlap_experiment.txt
 
 ### 2. Run Experiment
 
-**Using HuggingFace dataset:**
+**Using Wikipedia English:**
 ```bash
 python train_and_eval_overlap.py \
     --base_model_name "Qwen/Qwen2.5-0.5B" \
-    --dataset_name "yahma/alpaca-cleaned" \
-    --output_dir "./experiment_output" \
+    --dataset_name "wikimedia/wikipedia" \
+    --dataset_config "20231101.en" \
+    --output_dir "./experiment_wiki_en" \
+    --max_steps 1000 \
+    --eval_steps 100
+```
+
+**Using Wikipedia Japanese:**
+```bash
+python train_and_eval_overlap.py \
+    --base_model_name "Qwen/Qwen2.5-0.5B" \
+    --dataset_name "wikimedia/wikipedia" \
+    --dataset_config "20231101.ja" \
+    --output_dir "./experiment_wiki_ja" \
     --max_steps 1000 \
     --eval_steps 100
 ```
@@ -64,9 +76,19 @@ python plot_overlap_vs_steps.py --result_dir "./experiment_output"
 - **`CSV_FORMAT_README.md`** - Detailed CSV format guide
 - **`requirements_overlap_experiment.txt`** - Python dependencies
 
-## CSV Data Format
+## Data Format
 
-### Format 1: Simple Text
+### HuggingFace Datasets
+
+The script works with any HuggingFace dataset that has a `text` column. No special formatting is applied - text is used as-is.
+
+**Recommended: Wikipedia datasets**
+- English: `wikimedia/wikipedia` with config `20231101.en`
+- Japanese: `wikimedia/wikipedia` with config `20231101.ja`
+
+### CSV Format
+
+Simple CSV with a `text` column:
 
 ```csv
 text
@@ -81,23 +103,7 @@ python train_and_eval_overlap.py \
     --text_column "text"
 ```
 
-### Format 2: Instruction Format
-
-```csv
-instruction,input,output
-"Task description","Input context","Expected output"
-```
-
-**Usage:**
-```bash
-python train_and_eval_overlap.py \
-    --csv_path "./my_data.csv" \
-    --instruction_column "instruction" \
-    --input_column "input" \
-    --output_column "output"
-```
-
-See `CSV_FORMAT_README.md` for detailed format specifications.
+**Note:** No special formatting (like "### Instruction:") is applied. Text is used directly for training, matching the evaluation approach where only raw prompts are used.
 
 ## Key Parameters
 
@@ -106,7 +112,8 @@ See `CSV_FORMAT_README.md` for detailed format specifications.
 - `--device`: cuda/mps/cpu (auto-detected by default)
 
 ### Data Source (choose one)
-- `--dataset_name`: HuggingFace dataset name
+- `--dataset_name`: HuggingFace dataset name (e.g., "wikimedia/wikipedia")
+- `--dataset_config`: Dataset config/subset (e.g., "20231101.en" for English, "20231101.ja" for Japanese)
 - `--csv_path`: Path to custom CSV file
 
 ### Training
@@ -149,7 +156,8 @@ output_dir/
 ```bash
 python train_and_eval_overlap.py \
     --base_model_name "Qwen/Qwen2.5-0.5B" \
-    --dataset_name "yahma/alpaca-cleaned" \
+    --dataset_name "wikimedia/wikipedia" \
+    --dataset_config "20231101.en" \
     --output_dir "./test" \
     --max_steps 50 \
     --eval_steps 10 \
@@ -157,23 +165,33 @@ python train_and_eval_overlap.py \
     --num_train_samples 500
 ```
 
-### Example 2: Compare Different Training Steps
+### Example 2: Compare English vs Japanese Wikipedia
 
 ```bash
-# Train for different numbers of steps
-for steps in 100 500 1000; do
-    python train_and_eval_overlap.py \
-        --base_model_name "Qwen/Qwen2.5-0.5B" \
-        --dataset_name "yahma/alpaca-cleaned" \
-        --output_dir "./exp_${steps}steps" \
-        --max_steps $steps \
-        --eval_steps $(($steps / 10))
-done
+# English Wikipedia
+python train_and_eval_overlap.py \
+    --base_model_name "Qwen/Qwen2.5-0.5B" \
+    --dataset_name "wikimedia/wikipedia" \
+    --dataset_config "20231101.en" \
+    --output_dir "./exp_wiki_en" \
+    --max_steps 1000 \
+    --eval_steps 100 \
+    --save_fingerprints "./fingerprints_shared.json"
+
+# Japanese Wikipedia (reuse same fingerprints)
+python train_and_eval_overlap.py \
+    --base_model_name "Qwen/Qwen2.5-0.5B" \
+    --dataset_name "wikimedia/wikipedia" \
+    --dataset_config "20231101.ja" \
+    --output_dir "./exp_wiki_ja" \
+    --max_steps 1000 \
+    --eval_steps 100 \
+    --load_fingerprints "./fingerprints_shared.json"
 
 # Compare results
 python compare_overlap_experiments.py \
-    --exp_dirs ./exp_100steps ./exp_500steps ./exp_1000steps \
-    --labels "100 steps" "500 steps" "1000 steps"
+    --exp_dirs ./exp_wiki_en ./exp_wiki_ja \
+    --labels "English Wikipedia" "Japanese Wikipedia"
 ```
 
 ### Example 3: Using Custom CSV Data
@@ -181,10 +199,7 @@ python compare_overlap_experiments.py \
 ```bash
 python train_and_eval_overlap.py \
     --base_model_name "Qwen/Qwen2.5-0.5B" \
-    --csv_path "./example_data_instruction.csv" \
-    --instruction_column "instruction" \
-    --input_column "input" \
-    --output_column "output" \
+    --csv_path "./example_data_simple.csv" \
     --output_dir "./custom_data_exp" \
     --max_steps 1000 \
     --eval_steps 100

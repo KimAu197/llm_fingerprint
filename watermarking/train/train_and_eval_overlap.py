@@ -19,11 +19,21 @@ This script:
 3. Saves results to track how overlap changes with training steps
 
 Usage:
-    # Using HuggingFace dataset
+    # Using Wikipedia English
     python train_and_eval_overlap.py \
         --base_model_name "Qwen/Qwen2.5-0.5B" \
-        --dataset_name "yahma/alpaca-cleaned" \
+        --dataset_name "wikimedia/wikipedia" \
+        --dataset_config "20231101.en" \
         --output_dir "./ft_overlap_experiment" \
+        --max_steps 1000 \
+        --eval_steps 100
+    
+    # Using Wikipedia Japanese
+    python train_and_eval_overlap.py \
+        --base_model_name "Qwen/Qwen2.5-0.5B" \
+        --dataset_name "wikimedia/wikipedia" \
+        --dataset_config "20231101.ja" \
+        --output_dir "./ft_overlap_experiment_ja" \
         --max_steps 1000 \
         --eval_steps 100
     
@@ -225,23 +235,16 @@ def overlap_ratio(set_a: List[int], set_b: List[int]) -> float:
 def load_csv_dataset(
     csv_path: str,
     text_column: str = "text",
-    instruction_column: Optional[str] = None,
-    input_column: Optional[str] = None,
-    output_column: Optional[str] = None,
 ) -> Dataset:
     """
     Load dataset from CSV file.
     
-    Supports two formats:
-    1. Single text column: CSV with a 'text' column containing training text
-    2. Instruction format: CSV with 'instruction', 'input', 'output' columns
+    The CSV should have a text column containing the training text.
+    No special formatting is applied - text is used as-is.
     
     Args:
         csv_path: Path to CSV file
-        text_column: Name of text column (for format 1)
-        instruction_column: Name of instruction column (for format 2)
-        input_column: Name of input column (for format 2)
-        output_column: Name of output column (for format 2)
+        text_column: Name of text column
         
     Returns:
         HuggingFace Dataset object
@@ -254,51 +257,22 @@ def load_csv_dataset(
     print(f"[data] CSV columns: {list(df.columns)}")
     print(f"[data] Number of rows: {len(df)}")
     
-    # Check if using instruction format
-    if instruction_column and instruction_column in df.columns:
-        print(f"[data] Using instruction format")
-        
-        def format_instruction(row):
-            """Format instruction-style data."""
-            instruction = row.get(instruction_column, "")
-            input_text = row.get(input_column, "") if input_column else ""
-            output = row.get(output_column, "") if output_column else ""
-            
-            if input_text.strip():
-                text = f"### Instruction:\n{instruction}\n\n### Input:\n{input_text}\n\n### Response:\n{output}"
-            else:
-                text = f"### Instruction:\n{instruction}\n\n### Response:\n{output}"
-            
-            return {"text": text}
-        
-        data_dict = {"text": []}
-        for _, row in df.iterrows():
-            formatted = format_instruction(row)
-            data_dict["text"].append(formatted["text"])
-        
-        dataset = Dataset.from_dict(data_dict)
-    
-    # Use single text column
-    elif text_column in df.columns:
-        print(f"[data] Using text column: {text_column}")
-        dataset = Dataset.from_dict({"text": df[text_column].tolist()})
-    
-    else:
+    if text_column not in df.columns:
         raise ValueError(
-            f"CSV must contain either '{text_column}' column or "
-            f"'{instruction_column}' column. Found: {list(df.columns)}"
+            f"CSV must contain '{text_column}' column. Found: {list(df.columns)}"
         )
+    
+    print(f"[data] Using text column: {text_column}")
+    dataset = Dataset.from_dict({"text": df[text_column].tolist()})
     
     return dataset
 
 
 def load_and_prepare_dataset(
     dataset_name: Optional[str] = None,
+    dataset_config: Optional[str] = None,
     csv_path: Optional[str] = None,
     text_column: str = "text",
-    instruction_column: Optional[str] = None,
-    input_column: Optional[str] = None,
-    output_column: Optional[str] = None,
     tokenizer = None,
     max_length: int = 512,
     num_samples: Optional[int] = None,
@@ -306,13 +280,14 @@ def load_and_prepare_dataset(
     """
     Load and tokenize dataset for fine-tuning.
     
+    No special formatting is applied - text is used as-is for training.
+    This matches the evaluation approach where only the raw prompt is used.
+    
     Args:
-        dataset_name: HuggingFace dataset name (e.g., "yahma/alpaca-cleaned")
+        dataset_name: HuggingFace dataset name (e.g., "wikimedia/wikipedia")
+        dataset_config: Dataset config/subset (e.g., "20231101.en" for English Wikipedia)
         csv_path: Path to custom CSV file
-        text_column: Column name for text data in CSV
-        instruction_column: Column name for instruction (instruction format)
-        input_column: Column name for input (instruction format)
-        output_column: Column name for output (instruction format)
+        text_column: Column name for text data
         tokenizer: HuggingFace tokenizer
         max_length: Maximum sequence length
         num_samples: Limit number of samples (None = use all)
@@ -325,42 +300,26 @@ def load_and_prepare_dataset(
         dataset = load_csv_dataset(
             csv_path=csv_path,
             text_column=text_column,
-            instruction_column=instruction_column,
-            input_column=input_column,
-            output_column=output_column,
         )
     
     elif dataset_name:
         print(f"[data] Loading HuggingFace dataset: {dataset_name}")
+        if dataset_config:
+            print(f"[data] Using config: {dataset_config}")
         
-        # Handle common datasets
-        if dataset_name == "yahma/alpaca-cleaned":
-            dataset = load_dataset(dataset_name, split="train")
-            
-            def format_alpaca(example):
-                """Format Alpaca dataset."""
-                if example.get("input", "").strip():
-                    text = f"### Instruction:\n{example['instruction']}\n\n### Input:\n{example['input']}\n\n### Response:\n{example['output']}"
-                else:
-                    text = f"### Instruction:\n{example['instruction']}\n\n### Response:\n{example['output']}"
-                return {"text": text}
-            
-            dataset = dataset.map(format_alpaca, remove_columns=dataset.column_names)
-        
-        elif dataset_name == "timdettmers/openassistant-guanaco":
-            dataset = load_dataset(dataset_name, split="train")
-            # Already has 'text' column
-        
+        # Load dataset with optional config
+        if dataset_config:
+            dataset = load_dataset(dataset_name, dataset_config, split="train")
         else:
-            # Generic dataset loading
-            try:
-                dataset = load_dataset(dataset_name, split="train")
-                if "text" not in dataset.column_names:
-                    raise ValueError(
-                        f"Dataset must have a 'text' column. Found: {dataset.column_names}"
-                    )
-            except Exception as e:
-                raise ValueError(f"Failed to load dataset {dataset_name}: {e}")
+            dataset = load_dataset(dataset_name, split="train")
+        
+        # Check for text column
+        if "text" not in dataset.column_names:
+            raise ValueError(
+                f"Dataset must have a 'text' column. Found: {dataset.column_names}"
+            )
+        
+        print(f"[data] Dataset columns: {dataset.column_names}")
     
     else:
         raise ValueError("Must provide either --dataset_name or --csv_path")
@@ -496,7 +455,11 @@ def main():
     # Dataset arguments
     parser.add_argument(
         "--dataset_name", type=str, default=None,
-        help="HuggingFace dataset name (e.g., 'yahma/alpaca-cleaned')"
+        help="HuggingFace dataset name (e.g., 'wikimedia/wikipedia')"
+    )
+    parser.add_argument(
+        "--dataset_config", type=str, default=None,
+        help="Dataset config/subset (e.g., '20231101.en' for English Wikipedia, '20231101.ja' for Japanese)"
     )
     parser.add_argument(
         "--csv_path", type=str, default=None,
@@ -504,19 +467,7 @@ def main():
     )
     parser.add_argument(
         "--text_column", type=str, default="text",
-        help="Column name for text data in CSV (default: 'text')"
-    )
-    parser.add_argument(
-        "--instruction_column", type=str, default=None,
-        help="Column name for instruction (for instruction-format CSV)"
-    )
-    parser.add_argument(
-        "--input_column", type=str, default=None,
-        help="Column name for input (for instruction-format CSV)"
-    )
-    parser.add_argument(
-        "--output_column", type=str, default=None,
-        help="Column name for output/response (for instruction-format CSV)"
+        help="Column name for text data in CSV or dataset (default: 'text')"
     )
     parser.add_argument(
         "--max_length", type=int, default=512,
@@ -616,7 +567,10 @@ def main():
     if args.csv_path:
         print(f"Training data: {args.csv_path} (CSV)")
     else:
-        print(f"Training data: {args.dataset_name} (HuggingFace)")
+        dataset_info = args.dataset_name
+        if args.dataset_config:
+            dataset_info += f" (config: {args.dataset_config})"
+        print(f"Training data: {dataset_info}")
     print(f"Max steps: {args.max_steps}")
     print(f"Eval steps: {args.eval_steps}")
     print(f"Bottom-k vocab size: {args.bottom_k_vocab}")
@@ -707,11 +661,9 @@ def main():
     print("\n[5/6] Preparing dataset...")
     train_dataset = load_and_prepare_dataset(
         dataset_name=args.dataset_name,
+        dataset_config=args.dataset_config,
         csv_path=args.csv_path,
         text_column=args.text_column,
-        instruction_column=args.instruction_column,
-        input_column=args.input_column,
-        output_column=args.output_column,
         tokenizer=base_tokenizer,
         max_length=args.max_length,
         num_samples=args.num_train_samples,

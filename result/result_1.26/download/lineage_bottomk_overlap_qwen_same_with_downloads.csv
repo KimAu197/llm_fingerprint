@@ -1,0 +1,137 @@
+base_model_name,derived_model_name,base_model_downloads,derived_model_downloads,num_pairs,avg_overlap_ratio,bottom_k_vocab_size,pair_scores_json
+Qwen/Qwen2.5-0.5B,Qwen/Qwen2.5-0.5B-Instruct,1242781.0,1817425.0,5,0.3181,2000,"[0.236, 0.2485, 0.3715, 0.3685, 0.366]"
+Qwen/Qwen2.5-0.5B,Gensyn/Qwen2.5-0.5B-Instruct,1242781.0,127494.0,5,0.3181,2000,"[0.236, 0.2485, 0.3715, 0.3685, 0.366]"
+Qwen/Qwen2.5-0.5B,Qwen/Qwen2.5-Coder-0.5B,1242781.0,12148.0,5,0.1354,2000,"[0.1685, 0.139, 0.082, 0.147, 0.1405]"
+Qwen/Qwen2.5-0.5B,unsloth/Qwen2.5-0.5B,1242781.0,4886.0,5,1.0,2000,"[1.0, 1.0, 1.0, 1.0, 1.0]"
+Qwen/Qwen2.5-0.5B,numind/NuExtract-1.5-tiny,1242781.0,2297.0,5,0.6426000000000001,2000,"[0.5015, 0.6025, 0.7395, 0.66, 0.7095]"
+Qwen/Qwen2.5-0.5B,alamios/DeepSeek-R1-DRAFT-Qwen2.5-0.5B,1242781.0,822.0,5,0.3452,2000,"[0.3805, 0.286, 0.3715, 0.32, 0.368]"
+Qwen/Qwen2.5-0.5B,Mozilla/Qwen2.5-0.5B-Instruct-llamafile,1242781.0,235.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,DuoGuard/DuoGuard-0.5B,1242781.0,145.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,plaguss/Qwen2.5-0.5B-Math-Shepherd-PRM-0.1,1242781.0,94.0,5,0.7555,2000,"[0.723, 0.69, 0.8165, 0.766, 0.782]"
+Qwen/Qwen2.5-0.5B,jhu-clsp/rank1-0.5b,1242781.0,88.0,5,0.1874,2000,"[0.112, 0.199, 0.3125, 0.1145, 0.199]"
+Qwen/Qwen2.5-0.5B,tjake/Qwen2.5-0.5B-Instruct-JQ4,1242781.0,48.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,mlx-community/Qwen2.5-0.5B-Instruct-bf16,1242781.0,45.0,5,0.3181,2000,"[0.236, 0.2485, 0.3715, 0.3685, 0.366]"
+Qwen/Qwen2.5-0.5B,sail/Sailor2-1B,1242781.0,31.0,5,0.0435,2000,"[0.037, 0.0495, 0.0415, 0.0755, 0.014]"
+Qwen/Qwen2.5-0.5B,artificialguybr/Qwen2.5-0.5B-OpenHermes2.5,1242781.0,22.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,atlasia/Al-Atlas-0.5B,1242781.0,17.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,p1atdev/qwen2.5-0.5b-grpo-math-01,1242781.0,15.0,5,0.0082,2000,"[0.0075, 0.0035, 0.015, 0.005, 0.01]"
+Qwen/Qwen2.5-0.5B,slprl/slam_scaled,1242781.0,15.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,alamios/Qwenstral-Small-3.1-0.5B,1242781.0,14.0,5,0.0125,2000,"[0.0095, 0.012, 0.013, 0.0175, 0.0105]"
+Qwen/Qwen2.5-0.5B,BounharAbdelaziz/Al-Atlas-LLM-0.5B,1242781.0,13.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,rdsm/QwenPhi-4-0.5b-Draft,1242781.0,13.0,5,0.0161,2000,"[0.016, 0.015, 0.0155, 0.0155, 0.0185]"
+Qwen/Qwen2.5-0.5B,jiangchengchengNLP/qwenva,1242781.0,12.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,slprl/slam,1242781.0,11.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,piimaila/Qwen2.5-0.5B-openvino,1242781.0,10.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,alothomas/Qwen2.5-0.5B-PRM-RAD-balanced-150k,1242781.0,10.0,5,0.0231,2000,"[0.0285, 0.022, 0.0255, 0.0105, 0.029]"
+Qwen/Qwen2.5-0.5B,JayHyeon/Qwen2.5-0.5B-SFT,1242781.0,9.0,5,0.4271,2000,"[0.3615, 0.3835, 0.449, 0.4815, 0.46]"
+Qwen/Qwen2.5-0.5B,aalexchengg/test_trainer,1242781.0,9.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,amadeusai/Amadeus-Verbo-BI-Qwen-2.5-0.5B-PT-BR-Instruct-Experimental,1242781.0,8.0,5,0.5774,2000,"[0.514, 0.462, 0.6815, 0.5325, 0.697]"
+Qwen/Qwen2.5-0.5B,akhadangi/Qwen2.5-0.5B-0.01-L,1242781.0,8.0,5,0.3599,2000,"[0.322, 0.138, 0.563, 0.395, 0.3815]"
+Qwen/Qwen2.5-0.5B,sail/Sailor2-1B-Pre,1242781.0,7.0,5,0.0424999999999999,2000,"[0.0255, 0.0405, 0.054, 0.077, 0.0155]"
+Qwen/Qwen2.5-0.5B,JayHyeon/Qwen2.5-0.5B-SFT-5e-5-3ep,1242781.0,7.0,5,0.3214,2000,"[0.278, 0.1775, 0.4425, 0.3555, 0.3535]"
+Qwen/Qwen2.5-0.5B,reaperdoesntknow/Symbiotic-Beta,1242781.0,7.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,artificialguybr/QWEN-2.5-0.5B-Synthia-I,1242781.0,6.0,5,0.5494,2000,"[0.5905, 0.4385, 0.622, 0.5425, 0.5535]"
+Qwen/Qwen2.5-0.5B,googlefan/cycleqd-test-model,1242781.0,6.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,AlyGreo/finetune-Qwen2-0.5B-codeDataset,1242781.0,6.0,5,0.4009,2000,"[0.373, 0.327, 0.492, 0.3585, 0.454]"
+Qwen/Qwen2.5-0.5B,josang1204/Qweb2.5-FT-CSY,1242781.0,6.0,5,0.1558999999999999,2000,"[0.1345, 0.173, 0.175, 0.0785, 0.2185]"
+Qwen/Qwen2.5-0.5B,brando/tfa_output_2025_m02_d07_t07h_45m_38s,1242781.0,6.0,5,0.9653,2000,"[0.955, 0.9625, 0.9715, 0.9765, 0.961]"
+Qwen/Qwen2.5-0.5B,ruizhe1217/sft-s1-qwen-0.5b,1242781.0,6.0,5,0.3181,2000,"[0.236, 0.2485, 0.3715, 0.3685, 0.366]"
+Qwen/Qwen2.5-0.5B,oieieio/Qwen2.5-0.5B-Instruct,1242781.0,5.0,5,0.3181,2000,"[0.236, 0.2485, 0.3715, 0.3685, 0.366]"
+Qwen/Qwen2.5-0.5B,dtejasaipraveen/qwenfinetuned,1242781.0,5.0,5,1.0,2000,"[1.0, 1.0, 1.0, 1.0, 1.0]"
+Qwen/Qwen2.5-0.5B,DexinR/qwen2.5-math220k-ckpt15000,1242781.0,5.0,5,0.7736,2000,"[0.7555, 0.744, 0.792, 0.7505, 0.826]"
+Qwen/Qwen2.5-0.5B,ytzfhqs/Qwen2.5-med-book-main-classification,1242781.0,4.0,5,0.0504,2000,"[0.068, 0.0545, 0.0445, 0.031, 0.054]"
+Qwen/Qwen2.5-0.5B,artificialguybr/QWEN-2.5-0.5B-Synthia-II,1242781.0,4.0,5,0.5563,2000,"[0.6245, 0.409, 0.639, 0.5275, 0.5815]"
+Qwen/Qwen2.5-0.5B,llamafy/Qwen-Qwen2.5-0.5B-llamafied,1242781.0,4.0,5,1.0,2000,"[1.0, 1.0, 1.0, 1.0, 1.0]"
+Qwen/Qwen2.5-0.5B,DongfuJiang/Qwen2.5-0.5B-Instruct,1242781.0,4.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,fdyrd/QwenMath-0.5B,1242781.0,4.0,5,0.5245,2000,"[0.4205, 0.4045, 0.747, 0.565, 0.4855]"
+Qwen/Qwen2.5-0.5B,ibrahimkettaneh/NuExtract-1.5-tiny-4.5bpw-h8-exl2,1242781.0,4.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,JayHyeon/Qwen2.5-0.5B_ultrainteract_sft_2e-5_1ep,1242781.0,4.0,5,0.2935999999999999,2000,"[0.1435, 0.236, 0.403, 0.3605, 0.325]"
+Qwen/Qwen2.5-0.5B,bedobedo/Qwen2.5-0.5B-Instruct-Dir,1242781.0,4.0,5,0.3181,2000,"[0.236, 0.2485, 0.3715, 0.3685, 0.366]"
+Qwen/Qwen2.5-0.5B,liumy2010/Qwen2.5-0.5B-countdown-R3,1242781.0,4.0,5,0.9257,2000,"[0.909, 0.8995, 0.951, 0.9305, 0.9385]"
+Qwen/Qwen2.5-0.5B,pcuenq/Qwen2.5-0.5B-Instruct-with-new-merges-serialization,1242781.0,3.0,5,0.3181,2000,"[0.236, 0.2485, 0.3715, 0.3685, 0.366]"
+Qwen/Qwen2.5-0.5B,osllmai-community/Qwen2.5-0.5B,1242781.0,3.0,5,1.0,2000,"[1.0, 1.0, 1.0, 1.0, 1.0]"
+Qwen/Qwen2.5-0.5B,tcapelle/toxicity-scorer-qwen,1242781.0,3.0,5,0.0723999999999999,2000,"[0.072, 0.0545, 0.1075, 0.066, 0.062]"
+Qwen/Qwen2.5-0.5B,plaguss/Qwen2.5-0.5B-Math-Shepherd-PRM-token-0.1,1242781.0,3.0,5,0.5351,2000,"[0.4135, 0.475, 0.612, 0.64, 0.535]"
+Qwen/Qwen2.5-0.5B,viethq5/Qwen2.5-0.5B-Instruct-f16,1242781.0,3.0,5,0.3181,2000,"[0.236, 0.2485, 0.3715, 0.3685, 0.366]"
+Qwen/Qwen2.5-0.5B,JayHyeon/QWEN_toy-DPOP_5e-5-100ep_0alp_5lam,1242781.0,3.0,5,0.1572,2000,"[0.14, 0.18, 0.16, 0.141, 0.165]"
+Qwen/Qwen2.5-0.5B,verge4646/autotrain-qwen-1737303151,1242781.0,3.0,5,0.4769,2000,"[0.3775, 0.371, 0.6685, 0.482, 0.4855]"
+Qwen/Qwen2.5-0.5B,valerielucro/Qwen2-0.5B-GRPO-VLLM-mni-epoc-64-full,1242781.0,3.0,5,0.9624,2000,"[0.9575, 0.964, 0.957, 0.97, 0.9635]"
+Qwen/Qwen2.5-0.5B,southfreebird/Qwen2.5-0.5B-Instruct,1242781.0,3.0,5,0.3181,2000,"[0.236, 0.2485, 0.3715, 0.3685, 0.366]"
+Qwen/Qwen2.5-0.5B,akhadangi/Qwen2.5-0.5B-0.1-L,1242781.0,3.0,5,0.4526,2000,"[0.4015, 0.2035, 0.5685, 0.569, 0.5205]"
+Qwen/Qwen2.5-0.5B,limcheekin/Qwen2.5-0.5B-Instruct-rk3588-1.1.4,1242781.0,3.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,thundax/Qwen2.5-0.5B-Sign,1242781.0,3.0,5,0.2739,2000,"[0.215, 0.225, 0.3365, 0.4175, 0.1755]"
+Qwen/Qwen2.5-0.5B,Vikhrmodels/salt-qwen2.5-0.5b-tts,1242781.0,3.0,5,0.0162,2000,"[0.0135, 0.0225, 0.01, 0.013, 0.022]"
+Qwen/Qwen2.5-0.5B,morgan/qwen2_5.qwen2_5_0_5b_instruct,1242781.0,2.0,5,0.3181,2000,"[0.236, 0.2485, 0.3715, 0.3685, 0.366]"
+Qwen/Qwen2.5-0.5B,plaguss/Qwen2.5-0.5B-Math-Shepherd-PRM-0.2,1242781.0,2.0,5,0.6409,2000,"[0.5585, 0.567, 0.681, 0.7205, 0.6775]"
+Qwen/Qwen2.5-0.5B,shb2024/Qwen-0.5B-AMR,1242781.0,2.0,5,0.0718999999999999,2000,"[0.01, 0.036, 0.156, 0.14, 0.0175]"
+Qwen/Qwen2.5-0.5B,qgallouedec/Qwen2.5-0.5B-GRPO-main,1242781.0,2.0,5,0.9991,2000,"[0.999, 0.999, 0.999, 0.999, 0.9995]"
+Qwen/Qwen2.5-0.5B,jzhang-x/Qwen-2.5-7B-Simple-RL,1242781.0,2.0,5,0.9945,2000,"[0.995, 0.9925, 0.9965, 0.995, 0.9935]"
+Qwen/Qwen2.5-0.5B,hZzy/qwen2.5-0.5b-sft-25-1,1242781.0,2.0,5,0.4672,2000,"[0.3415, 0.3265, 0.6055, 0.558, 0.5045]"
+Qwen/Qwen2.5-0.5B,DiamondGotCat/Prism-0.2,1242781.0,2.0,5,0.132,2000,"[0.1135, 0.06, 0.2385, 0.215, 0.033]"
+Qwen/Qwen2.5-0.5B,hZzy/qwen2.5-0.5b-sft3-25-1,1242781.0,2.0,5,0.5574,2000,"[0.4405, 0.4285, 0.6775, 0.6355, 0.605]"
+Qwen/Qwen2.5-0.5B,YOYO-AI/Qwen2.5-0.5B-YOYO,1242781.0,2.0,5,0.3591,2000,"[0.279, 0.2955, 0.4135, 0.394, 0.4135]"
+Qwen/Qwen2.5-0.5B,genovalabs/Qwen2.5-0.5B-Instruct,1242781.0,2.0,5,0.3181,2000,"[0.236, 0.2485, 0.3715, 0.3685, 0.366]"
+Qwen/Qwen2.5-0.5B,alamios/Qwemma-3-0.5B,1242781.0,2.0,5,0.004,2000,"[0.002, 0.003, 0.0065, 0.006, 0.0025]"
+Qwen/Qwen2.5-0.5B,Bakanayatsu/runner-Qwen2.5-0.5B-v1,1242781.0,2.0,5,0.0001,2000,"[0.0, 0.0, 0.0, 0.0005, 0.0]"
+Qwen/Qwen2.5-0.5B,liumy2010/Qwen2.5-0.5B-countdown-SFT,1242781.0,2.0,5,0.7897000000000001,2000,"[0.793, 0.7145, 0.8365, 0.811, 0.7935]"
+Qwen/Qwen2.5-0.5B,robertvacareanu/instruct-rl-Qwen2.5-0.5B-databricks-dolly-15k,1242781.0,1.0,5,0.204,2000,"[0.183, 0.0535, 0.3385, 0.2755, 0.1695]"
+Qwen/Qwen2.5-0.5B,sbrzz/TinyLLaVA-Qwen2.5-0.5B-dinov2-small,1242781.0,1.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,jiangchengchengNLP/qwen_0.5B_instruct_law_summarize,1242781.0,1.0,5,0.0186,2000,"[0.0115, 0.0265, 0.0125, 0.0305, 0.012]"
+Qwen/Qwen2.5-0.5B,hangingardens/hihihi,1242781.0,1.0,5,0.757,2000,"[0.729, 0.6885, 0.8065, 0.782, 0.779]"
+Qwen/Qwen2.5-0.5B,caelancooper/Qwen2.5-0.5B-business,1242781.0,1.0,5,0.3181,2000,"[0.236, 0.2485, 0.3715, 0.3685, 0.366]"
+Qwen/Qwen2.5-0.5B,tcapelle/toxicity-scorer-qwen-ct2,1242781.0,1.0,5,0.0392,2000,"[0.03, 0.0335, 0.069, 0.0245, 0.039]"
+Qwen/Qwen2.5-0.5B,AcropolisLabs/Zyphen-CO-Legal-Autocomplete-micro,1242781.0,1.0,5,0.4606,2000,"[0.428, 0.446, 0.442, 0.515, 0.472]"
+Qwen/Qwen2.5-0.5B,minchyeom/bot3-0.5B,1242781.0,1.0,5,0.2509,2000,"[0.2265, 0.206, 0.3355, 0.2695, 0.217]"
+Qwen/Qwen2.5-0.5B,petkopetkov/Qwen2.5-0.5B-song-lyrics-generation,1242781.0,1.0,5,0.0389,2000,"[0.053, 0.036, 0.0345, 0.0245, 0.0465]"
+Qwen/Qwen2.5-0.5B,yinmingzhang/qwen2.5-0.5b-zhihu-sft,1242781.0,1.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,alothomas/Qwen2.5-0.5B-PRM-RAD-balanced-V3,1242781.0,1.0,5,0.0299,2000,"[0.0225, 0.035, 0.031, 0.03, 0.031]"
+Qwen/Qwen2.5-0.5B,alothomas/Qwen2.5-0.5B-PRM-RAD-balanced-V4,1242781.0,1.0,5,0.0451,2000,"[0.0565, 0.0455, 0.0425, 0.024, 0.057]"
+Qwen/Qwen2.5-0.5B,qgallouedec/Qwen2.5-0.5B-codeforces-SFT,1242781.0,1.0,5,0.5988,2000,"[0.5595, 0.4805, 0.7035, 0.649, 0.6015]"
+Qwen/Qwen2.5-0.5B,hZzy/qwen2.5-0.5b-sft2-25-1,1242781.0,1.0,5,0.4744,2000,"[0.362, 0.339, 0.5975, 0.573, 0.5005]"
+Qwen/Qwen2.5-0.5B,alamios/QwQwen-0.5B,1242781.0,1.0,5,0.9943000000000002,2000,"[0.9905, 0.9945, 0.9965, 0.9955, 0.9945]"
+Qwen/Qwen2.5-0.5B,YumeAyai/nailong,1242781.0,1.0,5,0.6344000000000001,2000,"[0.634, 0.559, 0.688, 0.7075, 0.5835]"
+Qwen/Qwen2.5-0.5B,liumy2010/Qwen2.5-0.5B-math-SFT,1242781.0,1.0,5,0.8256,2000,"[0.8105, 0.8185, 0.817, 0.836, 0.846]"
+Qwen/Qwen2.5-0.5B,liumy2010/Qwen2.5-0.5B-countdown-RFT,1242781.0,1.0,5,0.9212,2000,"[0.904, 0.8915, 0.951, 0.938, 0.9215]"
+Qwen/Qwen2.5-0.5B,liumy2010/Qwen2.5-0.5B-countdown-UFT,1242781.0,1.0,5,0.9223,2000,"[0.9095, 0.897, 0.941, 0.936, 0.928]"
+Qwen/Qwen2.5-0.5B,Aleksandr505/phishing-text-classifier-qwen-2.5-0.5B,1242781.0,1.0,5,0.0995,2000,"[0.1285, 0.109, 0.1435, 0.05, 0.0665]"
+Qwen/Qwen2.5-0.5B,JayHyeon/Qwen2.5-0.5B_ultrainteract_sft_1e-5_1ep-ultrainteract,1242781.0,1.0,5,0.4044,2000,"[0.2925, 0.35, 0.4805, 0.467, 0.432]"
+Qwen/Qwen2.5-0.5B,rexzen615/Qwen2.5-0.5B-finetuned-wikitext2,1242781.0,0.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,xue10/qwen2.5-0.5B-MathInstruct-lora,1242781.0,0.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,lewtun/Qwen2.5-0.5B-SFT-LoRA,1242781.0,0.0,5,0.5233,2000,"[0.4415, 0.4775, 0.6425, 0.5215, 0.5335]"
+Qwen/Qwen2.5-0.5B,AMKCode/Qwen2.5-0.5B-q4f16_1-MLC,1242781.0,0.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,Volko76/Qwen2.5-0.5B-Instruct-4.5bpw-exl2,1242781.0,0.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,Volko76/Qwen2.5-0.5B-Instruct-EXL2-4bits,1242781.0,0.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,Audreygyj/Qwen2.5-0.5B-SFT,1242781.0,0.0,5,0.6692,2000,"[0.6525, 0.592, 0.7625, 0.622, 0.717]"
+Qwen/Qwen2.5-0.5B,YaoLuzjut/LoRAOcean_Qwen2.5-0.5B_lora,1242781.0,0.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,cavendishlabs/sftd_model_c03f6a40-3b64-4f9b-b5f3-dd704171c333,1242781.0,0.0,5,0.2024,2000,"[0.2055, 0.1175, 0.235, 0.215, 0.239]"
+Qwen/Qwen2.5-0.5B,cavendishlabs/sftd_model_1cdaec2e-939d-41c6-b49f-8c97e02695ec,1242781.0,0.0,5,0.9149,2000,"[0.9225, 0.898, 0.925, 0.931, 0.898]"
+Qwen/Qwen2.5-0.5B,fabiopernisi/Qwen2.5-0.5B-BMW-compl,1242781.0,0.0,5,0.4775999999999999,2000,"[0.374, 0.367, 0.594, 0.5645, 0.4885]"
+Qwen/Qwen2.5-0.5B,adarksky/Qwen2.5-0.5B-sft-lora-rel-therapy,1242781.0,0.0,5,0.4245,2000,"[0.355, 0.301, 0.4935, 0.436, 0.537]"
+Qwen/Qwen2.5-0.5B,BlossomsAI/BloomVN-0.5B-ppo,1242781.0,0.0,5,0.6950000000000001,2000,"[0.7005, 0.627, 0.7025, 0.7475, 0.6975]"
+Qwen/Qwen2.5-0.5B,awentzonline/Qwen2.5-0.5B-replies,1242781.0,0.0,5,0.5483,2000,"[0.4075, 0.557, 0.633, 0.573, 0.571]"
+Qwen/Qwen2.5-0.5B,sravan27745/agriculture,1242781.0,0.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,JonhTheTrueKingoftheNorth/Qwen2.5-0.5b,1242781.0,0.0,5,0.1428,2000,"[0.124, 0.054, 0.2675, 0.1685, 0.1]"
+Qwen/Qwen2.5-0.5B,qgallouedec/Qwen2.5-0.5B-GRPO-2873,1242781.0,0.0,5,0.999,2000,"[0.999, 0.999, 0.999, 0.999, 0.999]"
+Qwen/Qwen2.5-0.5B,yfliao/X-R1-0.5B,1242781.0,0.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,flyyufelix/Qwen-2.5-7B-Simple-RL,1242781.0,0.0,5,0.0059,2000,"[0.005, 0.0055, 0.003, 0.0125, 0.0035]"
+Qwen/Qwen2.5-0.5B,Henga/car_control_model,1242781.0,0.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,raajveers/autotrain-kaedg-pqrid,1242781.0,0.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,AhmedLet/Qwen_0.5_python_codes_mbpp,1242781.0,0.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,sathwik16/results,1242781.0,0.0,5,0.7917,2000,"[0.7645, 0.745, 0.8225, 0.7905, 0.836]"
+Qwen/Qwen2.5-0.5B,mustafij48/qwen2.5-0.5B_on_databricks_dolly_4k_datasize_3_epoch,1242781.0,0.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,mustafij48/qwen2.5-0.5B_on_databricks_dolly_4k_datasize_5_epoch,1242781.0,0.0,5,0.7522,2000,"[0.6875, 0.6765, 0.804, 0.7935, 0.7995]"
+Qwen/Qwen2.5-0.5B,valerielucro/Qwen2-0.5B-GRPO-VLLM-mni-epoch-8-peft,1242781.0,0.0,5,0.9999,2000,"[1.0, 1.0, 0.9995, 1.0, 1.0]"
+Qwen/Qwen2.5-0.5B,EdBerg/outputs_qwen_100,1242781.0,0.0,5,0.1485,2000,"[0.115, 0.1165, 0.1205, 0.296, 0.0945]"
+Qwen/Qwen2.5-0.5B,EdBerg/outputs_qwen_232,1242781.0,0.0,5,0.2617,2000,"[0.301, 0.2285, 0.2965, 0.2145, 0.268]"
+Qwen/Qwen2.5-0.5B,fungchen/Qwen2.5-0.5B-Instruct-4.5bpw-exl2,1242781.0,0.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,conorbranagan/outputs,1242781.0,0.0,5,0.5387000000000001,2000,"[0.488, 0.44, 0.6065, 0.528, 0.631]"
+Qwen/Qwen2.5-0.5B,conorbranagan/Qwen2.5-0.5B-fake-news,1242781.0,0.0,5,0.5105999999999999,2000,"[0.4685, 0.4085, 0.576, 0.503, 0.597]"
+Qwen/Qwen2.5-0.5B,alamios/QwenSeek-R1-32B-0.5B,1242781.0,0.0,5,0.92,2000,"[0.91, 0.917, 0.9215, 0.9195, 0.932]"
+Qwen/Qwen2.5-0.5B,eagle0504/fine-tuned-Qwen2.5-0.5B-openai-gsm8k-enhanced-v1,1242781.0,0.0,5,0.8532,2000,"[0.831, 0.7675, 0.9115, 0.9045, 0.8515]"
+Qwen/Qwen2.5-0.5B,seyviour/qwen2.5-ft-averitec,1242781.0,0.0,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,liumy2010/Qwen2.5-0.5B-kk_logic-SFT,1242781.0,0.0,5,0.755,2000,"[0.713, 0.699, 0.7685, 0.805, 0.7895]"
+Qwen/Qwen2.5-0.5B,liumy2010/Qwen2.5-0.5B-countdown-SFT-RFT,1242781.0,0.0,5,0.7849999999999999,2000,"[0.7855, 0.715, 0.826, 0.8165, 0.782]"
+Qwen/Qwen2.5-0.5B,liumy2010/Qwen2.5-0.5B-math-SFT-RFT,1242781.0,0.0,5,0.8202999999999999,2000,"[0.8045, 0.8215, 0.807, 0.819, 0.8495]"
+Qwen/Qwen2.5-0.5B,Silin1590/Qwen-0d5B-Int-Soc-CoA,1242781.0,0.0,5,0.2845,2000,"[0.2135, 0.2375, 0.344, 0.3625, 0.265]"
+Qwen/Qwen2.5-0.5B,Silin1590/Qwen-0d5B-Int-CoT,1242781.0,0.0,5,0.307,2000,"[0.261, 0.25, 0.343, 0.338, 0.343]"
+Qwen/Qwen2.5-0.5B,rawsh/MetaMath-Qwen2.5b-PRM,1242781.0,,0,-1.0,2000,[]
