@@ -162,8 +162,10 @@ python train_and_eval_overlap.py \
     --max_steps 50 \
     --eval_steps 10 \
     --num_fingerprints 5 \
-    --num_train_samples 500
+    --num_train_samples 1000
 ```
+
+**Note:** Always set `--num_train_samples` when using Wikipedia to avoid downloading all 41 files!
 
 ### Example 2: Compare English vs Japanese Wikipedia
 
@@ -176,6 +178,7 @@ python train_and_eval_overlap.py \
     --output_dir "./exp_wiki_en" \
     --max_steps 1000 \
     --eval_steps 100 \
+    --num_train_samples 20000 \
     --save_fingerprints "./fingerprints_shared.json"
 
 # Japanese Wikipedia (reuse same fingerprints)
@@ -186,6 +189,7 @@ python train_and_eval_overlap.py \
     --output_dir "./exp_wiki_ja" \
     --max_steps 1000 \
     --eval_steps 100 \
+    --num_train_samples 20000 \
     --load_fingerprints "./fingerprints_shared.json"
 
 # Compare results
@@ -193,6 +197,11 @@ python compare_overlap_experiments.py \
     --exp_dirs ./exp_wiki_en ./exp_wiki_ja \
     --labels "English Wikipedia" "Japanese Wikipedia"
 ```
+
+**Why 20000 samples?** 
+- Default batch_size=4, gradient_accumulation=4 → 16 samples per step
+- 1000 steps × 16 = 16,000 samples minimum
+- 20,000 provides buffer for data shuffling
 
 ### Example 3: Using Custom CSV Data
 
@@ -220,6 +229,27 @@ This tool uses the same overlap testing methodology from the `../new/` directory
 - `train/`: Tracks overlap changes **during** the fine-tuning process
 
 ## Troubleshooting
+
+### Downloading Too Much Data (Wikipedia)
+
+**Problem:** Wikipedia dataset is downloading all 41 files (~10GB)
+
+**Solution:** Always set `--num_train_samples`:
+```bash
+--num_train_samples 20000  # For 1000 steps
+```
+
+The script uses streaming mode, so it only loads what you need.
+
+**Calculate samples needed:**
+```
+samples = max_steps × batch_size × gradient_accumulation × 1.25
+```
+
+Examples:
+- 1000 steps → 20,000 samples
+- 500 steps → 10,000 samples  
+- 100 steps → 2,000 samples
 
 ### Out of Memory
 

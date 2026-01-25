@@ -11,6 +11,26 @@ This experiment compares how fine-tuning on different languages (English vs Japa
 - No special text formatting - raw Wikipedia articles are used directly
 - Matches the evaluation approach (raw prompts only)
 
+## Understanding Training Steps vs Samples
+
+**Important:** Training steps ≠ number of samples!
+
+- **1 step** = 1 batch update
+- **Effective batch size** = `per_device_batch_size × gradient_accumulation_steps × num_gpus`
+- **Samples per step** = effective batch size
+
+**Example:**
+- `per_device_batch_size = 4`
+- `gradient_accumulation_steps = 4`
+- `num_gpus = 1`
+- **→ 16 samples per step**
+- **→ 1000 steps = 16,000 samples**
+
+**Recommendation:** Set `--num_train_samples` to avoid downloading entire Wikipedia:
+```bash
+--num_train_samples 20000  # For 1000 steps with default settings
+```
+
 ## Quick Start
 
 ### Option 1: Use the Provided Script
@@ -20,9 +40,11 @@ bash run_wikipedia_experiments.sh
 ```
 
 This will:
-1. Fine-tune on English Wikipedia (10k samples, 1000 steps)
-2. Fine-tune on Japanese Wikipedia (10k samples, 1000 steps)
+1. Fine-tune on English Wikipedia (10k samples, ~625 steps)
+2. Fine-tune on Japanese Wikipedia (10k samples, ~625 steps)
 3. Compare the results
+
+**Note:** The script uses streaming mode to avoid downloading all 41 Wikipedia files!
 
 ### Option 2: Run Manually
 
@@ -35,9 +57,14 @@ python train_and_eval_overlap.py \
     --output_dir "./wiki_en" \
     --max_steps 1000 \
     --eval_steps 100 \
-    --num_train_samples 10000 \
+    --num_train_samples 20000 \
     --save_fingerprints "./fingerprints.json"
 ```
+
+**Why 20000 samples for 1000 steps?**
+- Default: `batch_size=4`, `gradient_accumulation=4` → 16 samples/step
+- 1000 steps × 16 = 16,000 samples
+- 20,000 gives some buffer
 
 **Step 2: Japanese Wikipedia**
 ```bash
@@ -48,7 +75,7 @@ python train_and_eval_overlap.py \
     --output_dir "./wiki_ja" \
     --max_steps 1000 \
     --eval_steps 100 \
-    --num_train_samples 10000 \
+    --num_train_samples 20000 \
     --load_fingerprints "./fingerprints.json"
 ```
 
@@ -168,9 +195,24 @@ Reduce batch size and samples:
 --num_train_samples 5000
 ```
 
-### Dataset Loading Slow
+### Dataset Loading Slow / Too Much Data
 
-The first time loading Wikipedia may take a while (downloading and caching). Subsequent runs will be faster.
+**Solution 1:** Always set `--num_train_samples`:
+```bash
+--num_train_samples 20000  # Only load what you need
+```
+
+**Solution 2:** The script now uses streaming mode automatically, so it won't download all 41 files.
+
+**How many samples do I need?**
+```
+samples_needed = max_steps × batch_size × gradient_accumulation_steps × 1.25
+```
+
+Examples:
+- 1000 steps: ~20,000 samples
+- 500 steps: ~10,000 samples
+- 100 steps: ~2,000 samples
 
 ### Different Tokenizers
 

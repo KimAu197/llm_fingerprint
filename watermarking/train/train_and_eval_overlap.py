@@ -307,19 +307,40 @@ def load_and_prepare_dataset(
         if dataset_config:
             print(f"[data] Using config: {dataset_config}")
         
-        # Load dataset with optional config
-        if dataset_config:
-            dataset = load_dataset(dataset_name, dataset_config, split="train")
-        else:
-            dataset = load_dataset(dataset_name, split="train")
+        # Use streaming mode for large datasets to avoid downloading everything
+        # This is especially important for Wikipedia which has 41 large files
+        print(f"[data] Using streaming mode to avoid downloading entire dataset")
         
-        # Check for text column
-        if "text" not in dataset.column_names:
+        if dataset_config:
+            dataset_stream = load_dataset(dataset_name, dataset_config, split="train", streaming=True)
+        else:
+            dataset_stream = load_dataset(dataset_name, split="train", streaming=True)
+        
+        # Check for text column (peek at first example)
+        first_example = next(iter(dataset_stream))
+        if "text" not in first_example:
             raise ValueError(
-                f"Dataset must have a 'text' column. Found: {dataset.column_names}"
+                f"Dataset must have a 'text' column. Found: {list(first_example.keys())}"
             )
         
-        print(f"[data] Dataset columns: {dataset.column_names}")
+        print(f"[data] Dataset columns: {list(first_example.keys())}")
+        
+        # Convert streaming dataset to regular dataset with limited samples
+        # This avoids downloading the entire dataset
+        if num_samples is None:
+            # Calculate approximate samples needed based on training steps
+            # Assume: steps * batch_size * gradient_accumulation_steps
+            # For safety, use 2x the calculated amount
+            print(f"[warn] No num_samples specified. This may download a lot of data.")
+            print(f"[warn] Recommend setting --num_train_samples based on your max_steps")
+            num_samples = 100000  # Default cap
+        
+        print(f"[data] Taking {num_samples} samples from streaming dataset")
+        dataset = Dataset.from_dict({
+            "text": [example["text"] for example, _ in zip(dataset_stream, range(num_samples))]
+        })
+        
+        print(f"[data] Loaded {len(dataset)} samples")
     
     else:
         raise ValueError("Must provide either --dataset_name or --csv_path")

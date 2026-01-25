@@ -9,7 +9,9 @@ BASE_MODEL="Qwen/Qwen2.5-0.5B"
 MAX_STEPS=1000
 EVAL_STEPS=100
 NUM_FINGERPRINTS=20
-NUM_SAMPLES=10000  # Limit samples for faster training
+BATCH_SIZE=4              # Change this: batch size per device
+GRAD_ACCUMULATION=4       # Change this: gradient accumulation steps
+NUM_SAMPLES=20000         # For 1000 steps: batch_size(4) × grad_accum(4) × steps(1000) × buffer(1.25) ≈ 20000
 
 echo "=========================================="
 echo "Wikipedia Overlap Experiments"
@@ -19,6 +21,9 @@ echo "Base model: $BASE_MODEL"
 echo "Max steps: $MAX_STEPS"
 echo "Eval steps: $EVAL_STEPS"
 echo "Training samples: $NUM_SAMPLES"
+echo ""
+echo "Note: Using streaming mode to avoid downloading entire Wikipedia dataset"
+echo "      Only the first $NUM_SAMPLES articles will be loaded"
 echo ""
 
 # Create output directory
@@ -41,6 +46,8 @@ python train_and_eval_overlap.py \
     --eval_steps $EVAL_STEPS \
     --num_fingerprints $NUM_FINGERPRINTS \
     --num_train_samples $NUM_SAMPLES \
+    --per_device_train_batch_size $BATCH_SIZE \
+    --gradient_accumulation_steps $GRAD_ACCUMULATION \
     --save_fingerprints "./wikipedia_experiments/fingerprints_shared.json"
 
 echo ""
@@ -64,6 +71,8 @@ python train_and_eval_overlap.py \
     --eval_steps $EVAL_STEPS \
     --num_fingerprints $NUM_FINGERPRINTS \
     --num_train_samples $NUM_SAMPLES \
+    --per_device_train_batch_size $BATCH_SIZE \
+    --gradient_accumulation_steps $GRAD_ACCUMULATION \
     --load_fingerprints "./wikipedia_experiments/fingerprints_shared.json"
 
 echo ""
