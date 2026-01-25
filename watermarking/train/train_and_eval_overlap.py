@@ -17,16 +17,20 @@ This script:
    - The fine-tuned model's bottom-k wordlist
    - The original base model's bottom-k wordlist
 3. Saves results to track how overlap changes with training steps
+4. Logs metrics to Weights & Biases (wandb) for visualization
 
 Usage:
-    # Using Wikipedia English
+    # Using Wikipedia English with wandb
     python train_and_eval_overlap.py \
         --base_model_name "Qwen/Qwen2.5-0.5B" \
         --dataset_name "wikimedia/wikipedia" \
         --dataset_config "20231101.en" \
         --output_dir "./ft_overlap_experiment" \
         --max_steps 1000 \
-        --eval_steps 100
+        --eval_steps 100 \
+        --use_wandb \
+        --wandb_project "model-overlap" \
+        --wandb_run_name "wiki_en_experiment"
     
     # Using Wikipedia Japanese
     python train_and_eval_overlap.py \
@@ -67,6 +71,14 @@ from transformers import (
     DataCollatorForLanguageModeling,
     TrainerCallback,
 )
+
+# Optional wandb import
+try:
+    import wandb
+    WANDB_AVAILABLE = True
+except ImportError:
+    WANDB_AVAILABLE = False
+    print("[warn] wandb not installed. Install with: pip install wandb")
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -386,6 +398,7 @@ class OverlapEvaluationCallback(TrainerCallback):
         bottom_k_vocab: int,
         device: str,
         output_dir: str,
+        use_wandb: bool = False,
     ):
         """
         Initialize overlap evaluation callback.
@@ -399,6 +412,7 @@ class OverlapEvaluationCallback(TrainerCallback):
             bottom_k_vocab: Size of bottom-k vocabulary
             device: Device to run evaluation on
             output_dir: Directory to save results
+            use_wandb: Whether to log to wandb
         """
         self.base_model = base_model
         self.base_tokenizer = base_tokenizer
@@ -408,6 +422,7 @@ class OverlapEvaluationCallback(TrainerCallback):
         self.bottom_k_vocab = bottom_k_vocab
         self.device = device
         self.output_dir = output_dir
+        self.use_wandb = use_wandb
         self.results = []
     
     def on_step_end(self, args, state, control, model=None, **kwargs):
@@ -450,6 +465,15 @@ class OverlapEvaluationCallback(TrainerCallback):
             self.results.append(result)
             
             print(f"[eval] Step {current_step}: Average overlap = {avg_overlap:.4f}")
+            
+            # Log to wandb if enabled
+            if self.use_wandb and WANDB_AVAILABLE:
+                wandb.log({
+                    "overlap/avg_overlap_ratio": avg_overlap,
+                    "overlap/min_overlap": min(overlap_scores) if overlap_scores else 0.0,
+                    "overlap/max_overlap": max(overlap_scores) if overlap_scores else 0.0,
+                    "step": current_step,
+                })
             
             # Save intermediate results
             results_path = os.path.join(self.output_dir, "overlap_results.json")
@@ -525,12 +549,34 @@ def main():
         help="Number of gradient accumulation steps"
     )
     parser.add_argument(
-        "--learning_rate", type=float, default=2e-5,
-        help="Learning rate for optimizer"
+        "--learning_rate", type=float, default=5e-6,
+        help="Learning rate for optimizer (default: 5e-6, lower to prevent NaN)"
     )
     parser.add_argument(
         "--warmup_steps", type=int, default=100,
         help="Number of warmup steps for learning rate scheduler"
+    )
+    parser.add_argument(
+        "--logging_steps", type=int, default=100,
+        help="Log training metrics every N steps (default: 100)"
+    )
+    
+    # Wandb arguments
+    parser.add_argument(
+        "--use_wandb", action="store_true",
+        help="Enable Weights & Biases logging"
+    )
+    parser.add_argument(
+        "--wandb_project", type=str, default="model-overlap",
+        help="Wandb project name"
+    )
+    parser.add_argument(
+        "--wandb_run_name", type=str, default=None,
+        help="Wandb run name (auto-generated if not provided)"
+    )
+    parser.add_argument(
+        "--wandb_api_key", type=str, default=None,
+        help="Wandb API key (or set WANDB_API_KEY environment variable)"
     )
     
     # Overlap evaluation arguments
@@ -574,6 +620,33 @@ def main():
     # Validate arguments
     if not args.dataset_name and not args.csv_path:
         raise ValueError("Must provide either --dataset_name or --csv_path")
+    
+    # Initialize wandb if requested
+    if args.use_wandb:
+        if not WANDB_AVAILABLE:
+            print("[error] wandb requested but not installed. Install with: pip install wandb")
+            print("[error] Continuing without wandb...")
+            args.use_wandb = False
+        else:
+            # Set API key if provided
+            if args.wandb_api_key:
+                os.environ["WANDB_API_KEY"] = args.wandb_api_key
+            
+            # Auto-generate run name if not provided
+            if not args.wandb_run_name:
+                dataset_name = args.dataset_name or "csv"
+                if args.dataset_config:
+                    dataset_name += f"_{args.dataset_config}"
+                args.wandb_run_name = f"{dataset_name}_steps{args.max_steps}"
+            
+            # Initialize wandb
+            wandb.init(
+                project=args.wandb_project,
+                name=args.wandb_run_name,
+                config=vars(args),
+                tags=["overlap-experiment", args.base_model_name.split("/")[-1]],
+            )
+            print(f"[wandb] Initialized: {args.wandb_project}/{args.wandb_run_name}")
     
     # Set random seed
     set_seed(args.seed)
@@ -705,13 +778,14 @@ def main():
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         learning_rate=args.learning_rate,
         warmup_steps=args.warmup_steps,
-        logging_steps=10,
+        logging_steps=args.logging_steps,
         save_steps=args.save_steps,
         save_total_limit=3,
         fp16=args.use_fp16,  # Only use FP16 if explicitly requested
-        report_to="none",
+        max_grad_norm=1.0,  # Gradient clipping to prevent NaN
+        report_to="wandb" if args.use_wandb else "none",
         remove_unused_columns=True,
-        dataloader_num_workers=4,
+        dataloader_num_workers=2,  # Reduced workers to avoid issues
     )
     
     data_collator = DataCollatorForLanguageModeling(
@@ -729,6 +803,7 @@ def main():
         bottom_k_vocab=args.bottom_k_vocab,
         device=args.device,
         output_dir=args.output_dir,
+        use_wandb=args.use_wandb,
     )
     
     trainer = Trainer(
@@ -795,6 +870,24 @@ def main():
     
     print("\n✓ Experiment completed successfully!")
     print(f"All results saved to: {args.output_dir}")
+    
+    # Finish wandb run
+    if args.use_wandb and WANDB_AVAILABLE:
+        # Log final summary to wandb
+        if len(overlap_callback.results) >= 2:
+            first_overlap = overlap_callback.results[0]["avg_overlap_ratio"]
+            last_overlap = overlap_callback.results[-1]["avg_overlap_ratio"]
+            total_steps = overlap_callback.results[-1]["step"] - overlap_callback.results[0]["step"]
+            
+            if total_steps > 0:
+                decrease_rate = (first_overlap - last_overlap) / total_steps
+                wandb.summary["initial_overlap"] = first_overlap
+                wandb.summary["final_overlap"] = last_overlap
+                wandb.summary["total_decrease"] = first_overlap - last_overlap
+                wandb.summary["decrease_rate_per_step"] = decrease_rate
+        
+        wandb.finish()
+        print("\n[wandb] Run finished and logged")
 
 
 if __name__ == "__main__":

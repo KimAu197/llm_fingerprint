@@ -11,6 +11,7 @@ This tool fine-tunes a base model and evaluates the overlap ratio between the fi
 - Supports HuggingFace datasets and custom CSV files
 - Tracks overlap changes during training
 - Generates visualization plots
+- Weights & Biases (wandb) integration for experiment tracking
 
 ## Quick Start
 
@@ -18,6 +19,9 @@ This tool fine-tunes a base model and evaluates the overlap ratio between the fi
 
 ```bash
 pip install -r requirements_overlap_experiment.txt
+
+# Optional: Install wandb for experiment tracking
+pip install wandb
 ```
 
 ### 2. Run Experiment
@@ -74,7 +78,11 @@ python plot_overlap_vs_steps.py --result_dir "./experiment_output"
 ### Documentation
 - **`README.md`** - This file
 - **`CSV_FORMAT_README.md`** - Detailed CSV format guide
+- **`WANDB_GUIDE.md`** - Weights & Biases integration guide
 - **`requirements_overlap_experiment.txt`** - Python dependencies
+
+### Helper Scripts
+- **`run_with_wandb.sh`** - Example script for running with wandb
 
 ## Data Format
 
@@ -126,11 +134,18 @@ python train_and_eval_overlap.py \
 - `--bottom_k_vocab`: Size of bottom-k vocabulary (default: 2000)
 - `--num_fingerprints`: Number of fingerprint prompts (default: 20)
 
+### Wandb Integration
+- `--use_wandb`: Enable Weights & Biases logging
+- `--wandb_project`: Wandb project name (default: "model-overlap")
+- `--wandb_run_name`: Run name (auto-generated if not provided)
+- `--wandb_api_key`: API key (or set WANDB_API_KEY env var)
+
 ### Other
 - `--num_train_samples`: Limit training samples (None = use all)
 - `--seed`: Random seed (default: 42)
 - `--save_fingerprints`: Save fingerprints for reuse
 - `--load_fingerprints`: Load existing fingerprints
+- `--logging_steps`: Log training metrics every N steps (default: 100)
 
 ## Output Files
 
@@ -167,7 +182,33 @@ python train_and_eval_overlap.py \
 
 **Note:** Always set `--num_train_samples` when using Wikipedia to avoid downloading all 41 files!
 
-### Example 2: Compare English vs Japanese Wikipedia
+### Example 2: With Wandb Tracking
+
+```bash
+# Set your wandb API key
+export WANDB_API_KEY="your_api_key_here"
+
+# Or pass it directly
+python train_and_eval_overlap.py \
+    --base_model_name "Qwen/Qwen2.5-0.5B" \
+    --dataset_name "wikimedia/wikipedia" \
+    --dataset_config "20231101.en" \
+    --output_dir "./exp_wiki_en" \
+    --max_steps 1000 \
+    --eval_steps 100 \
+    --num_train_samples 20000 \
+    --use_wandb \
+    --wandb_project "model-overlap" \
+    --wandb_run_name "wiki_en_1000steps" \
+    --wandb_api_key "your_api_key_here"
+```
+
+**Wandb will track:**
+- Training loss, learning rate, gradient norm
+- Overlap ratio at each evaluation step (avg, min, max)
+- Final summary statistics (initial/final overlap, decrease rate)
+
+### Example 3: Compare English vs Japanese Wikipedia
 
 ```bash
 # English Wikipedia
@@ -179,7 +220,9 @@ python train_and_eval_overlap.py \
     --max_steps 1000 \
     --eval_steps 100 \
     --num_train_samples 20000 \
-    --save_fingerprints "./fingerprints_shared.json"
+    --save_fingerprints "./fingerprints_shared.json" \
+    --use_wandb \
+    --wandb_run_name "wiki_en"
 
 # Japanese Wikipedia (reuse same fingerprints)
 python train_and_eval_overlap.py \
@@ -190,7 +233,9 @@ python train_and_eval_overlap.py \
     --max_steps 1000 \
     --eval_steps 100 \
     --num_train_samples 20000 \
-    --load_fingerprints "./fingerprints_shared.json"
+    --load_fingerprints "./fingerprints_shared.json" \
+    --use_wandb \
+    --wandb_run_name "wiki_ja"
 
 # Compare results
 python compare_overlap_experiments.py \
@@ -229,6 +274,31 @@ This tool uses the same overlap testing methodology from the `../new/` directory
 - `train/`: Tracks overlap changes **during** the fine-tuning process
 
 ## Troubleshooting
+
+### NaN Loss / Gradient
+
+**Problem:** Loss becomes NaN during training
+
+**Solution:** Lower the learning rate:
+```bash
+--learning_rate 5e-6  # Default (was 2e-5)
+```
+
+Or even lower:
+```bash
+--learning_rate 1e-6
+```
+
+**Note:** The script now includes gradient clipping (`max_grad_norm=1.0`) to prevent NaN.
+
+### Too Much Logging
+
+**Problem:** Console is spammed with training logs
+
+**Solution:** Increase logging interval:
+```bash
+--logging_steps 100  # Default is 50
+```
 
 ### FP16 Gradient Scaling Error
 
