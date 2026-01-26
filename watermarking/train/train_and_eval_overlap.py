@@ -502,14 +502,47 @@ class OverlapEvaluationCallback(TrainerCallback):
             
             avg_overlap = sum(overlap_scores) / len(overlap_scores) if overlap_scores else 0.0
             
+            # Collect detailed wordlist info for debugging
+            wordlist_details = []
+            for idx, fp in enumerate(self.fingerprints):
+                prompt_text = fp.get("x_prime", fp.get("prompt", ""))
+                base_bottomk = self.base_bottomk_cache[prompt_text]
+                
+                # Get the fine-tuned model's bottom-k again for saving
+                ft_bottomk = compute_bottomk_vocab_for_model(
+                    model, self.base_tokenizer, k=self.bottom_k_vocab,
+                    device=self.device, prompt=prompt_text
+                )
+                
+                wordlist_details.append({
+                    "fingerprint_idx": idx,
+                    "prompt": prompt_text[:100],  # First 100 chars
+                    "base_bottomk_full": base_bottomk,  # Full list for analysis
+                    "ft_bottomk_full": ft_bottomk,  # Full list for analysis
+                    "base_bottomk_preview": base_bottomk[:50],  # Preview
+                    "ft_bottomk_preview": ft_bottomk[:50],  # Preview
+                    "overlap": overlap_scores[idx],
+                })
+            
             result = {
                 "step": current_step,
                 "avg_overlap_ratio": avg_overlap,
                 "overlap_scores": overlap_scores,
+                "wordlist_details": wordlist_details,  # Add detailed info
             }
             self.results.append(result)
             
             print(f"[eval] Step {current_step}: Average overlap = {avg_overlap:.4f}")
+            
+            # Save detailed wordlist comparison for debugging
+            debug_path = os.path.join(self.output_dir, f"wordlist_debug_step_{current_step}.json")
+            with open(debug_path, "w") as f:
+                json.dump({
+                    "step": current_step,
+                    "avg_overlap": avg_overlap,
+                    "fingerprints": wordlist_details,
+                }, f, indent=2)
+            print(f"[debug] Saved wordlist details to: {debug_path}")
             
             # Log to wandb if enabled
             if self.use_wandb and WANDB_AVAILABLE:
