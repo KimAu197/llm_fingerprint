@@ -586,20 +586,20 @@ def main():
         help="Save checkpoint every N steps"
     )
     parser.add_argument(
-        "--per_device_train_batch_size", type=int, default=4,
-        help="Training batch size per device"
+        "--per_device_train_batch_size", type=int, default=2,
+        help="Training batch size per device (limited by GPU memory)"
     )
     parser.add_argument(
-        "--gradient_accumulation_steps", type=int, default=1,
-        help="Number of gradient accumulation steps"
+        "--gradient_accumulation_steps", type=int, default=8,
+        help="Gradient accumulation steps (effective batch = 2*8=16, similar to Synthia-I's 40)"
     )
     parser.add_argument(
-        "--learning_rate", type=float, default=5e-6,
-        help="Learning rate for optimizer (default: 5e-6, lower to prevent NaN)"
+        "--learning_rate", type=float, default=1e-5,
+        help="Learning rate (default: 1e-5, same as successful Synthia-I fine-tuning)"
     )
     parser.add_argument(
         "--warmup_steps", type=int, default=100,
-        help="Number of warmup steps for learning rate scheduler"
+        help="Number of warmup steps (same as Synthia-I)"
     )
     parser.add_argument(
         "--logging_steps", type=int, default=100,
