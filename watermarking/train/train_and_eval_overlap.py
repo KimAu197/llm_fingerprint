@@ -619,20 +619,24 @@ def main():
         help="Save checkpoint every N steps"
     )
     parser.add_argument(
-        "--per_device_train_batch_size", type=int, default=2,
+        "--per_device_train_batch_size", type=int, default=4,
         help="Training batch size per device (limited by GPU memory)"
     )
     parser.add_argument(
-        "--gradient_accumulation_steps", type=int, default=8,
+        "--gradient_accumulation_steps", type=int, default=10,
         help="Gradient accumulation steps (effective batch = 2*8=16, similar to Synthia-I's 40)"
     )
     parser.add_argument(
-        "--learning_rate", type=float, default=1e-5,
-        help="Learning rate (default: 1e-5, same as successful Synthia-I fine-tuning)"
+        "--learning_rate", type=float, default=2e-6,
+        help="Learning rate (default: 2e-6, reduced for stability with long sequences)"
     )
     parser.add_argument(
-        "--warmup_steps", type=int, default=100,
-        help="Number of warmup steps (same as Synthia-I)"
+        "--warmup_steps", type=int, default=200,
+        help="Number of warmup steps (increased for stability)"
+    )
+    parser.add_argument(
+        "--max_grad_norm", type=float, default=0.5,
+        help="Maximum gradient norm for clipping (default: 0.5)"
     )
     parser.add_argument(
         "--logging_steps", type=int, default=100,
@@ -691,6 +695,10 @@ def main():
     parser.add_argument(
         "--use_fp16", action="store_true",
         help="Use FP16 mixed precision training (may cause issues on some systems)"
+    )
+    parser.add_argument(
+        "--use_bf16", action="store_true",
+        help="Use BF16 mixed precision training (recommended for better stability)"
     )
     
     args = parser.parse_args()
@@ -860,7 +868,8 @@ def main():
         save_steps=args.save_steps,
         save_total_limit=3,
         fp16=args.use_fp16,  # Only use FP16 if explicitly requested
-        max_grad_norm=1.0,  # Gradient clipping to prevent NaN
+        bf16=args.use_bf16,  # Use BF16 if requested (recommended for stability)
+        max_grad_norm=args.max_grad_norm,  # Configurable gradient clipping
         report_to="wandb" if args.use_wandb else "none",
         remove_unused_columns=True,
         dataloader_num_workers=2,  # Reduced workers to avoid issues
