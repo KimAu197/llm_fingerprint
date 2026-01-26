@@ -128,7 +128,8 @@ python train_and_eval_overlap.py \
 - `--max_steps`: Maximum training steps (default: 1000)
 - `--eval_steps`: Evaluate overlap every N steps (default: 100)
 - `--per_device_train_batch_size`: Batch size per device (default: 4)
-- `--learning_rate`: Learning rate (default: 2e-5)
+- `--learning_rate`: Learning rate (default: 5e-6)
+- `--max_length`: Max sequence length for training (default: None = use tokenizer's model_max_length, typically 2048)
 
 ### Overlap Evaluation
 - `--bottom_k_vocab`: Size of bottom-k vocabulary (default: 2000)
@@ -273,6 +274,22 @@ This tool uses the same overlap testing methodology from the `../new/` directory
 - `new/`: Compares a fixed base model with multiple already-fine-tuned models
 - `train/`: Tracks overlap changes **during** the fine-tuning process
 
+## Important: Training Sequence Length
+
+**By default, the script uses the tokenizer's `model_max_length` for training** (typically 2048 for Qwen models).
+
+This is important because:
+- ✅ **Training with full sequences** preserves the model's original behavior better
+- ✅ **Higher overlap** with base model (more similar to how the base model was trained)
+- ✅ **More representative training** (not just article beginnings)
+
+**Evaluation always uses the prompt length** (typically short, <100 tokens), so training length doesn't affect evaluation.
+
+If you want to use a specific max_length:
+```bash
+--max_length 512  # Truncate to 512 tokens during training
+```
+
 ## Troubleshooting
 
 ### Understanding Overlap Changes
@@ -280,18 +297,20 @@ This tool uses the same overlap testing methodology from the `../new/` directory
 **What is normal:**
 - Step 1: overlap = 1.0 (model hasn't changed yet)
 - Overlap decreases as training progresses (model is changing)
-- **How fast it decreases depends on**: learning rate, dataset, model size, training steps
+- **How fast it decreases depends on**: learning rate, dataset, model size, training steps, **sequence length**
 
 **The overlap decrease is NOT a bug** - it shows the model is learning and changing!
 
-**If you want slower changes:**
+**If you want slower changes (higher overlap):**
 ```bash
 --learning_rate 1e-6  # Lower learning rate
+# OR use default max_length (tokenizer's model_max_length)
 ```
 
-**If you want faster changes:**
+**If you want faster changes (lower overlap):**
 ```bash
 --learning_rate 2e-5  # Higher learning rate
+--max_length 512      # Shorter sequences
 ```
 
 ### NaN Loss / Gradient
