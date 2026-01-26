@@ -1,0 +1,55 @@
+base_model_name,derived_model_name,num_pairs,avg_overlap_ratio,bottom_k_vocab_size,pair_scores_json
+Qwen/Qwen2.5-0.5B,Qwen/Qwen2.5-0.5B-Instruct,5,0.3181,2000,"[0.236, 0.2485, 0.3715, 0.3685, 0.366]"
+Qwen/Qwen2.5-0.5B,microsoft/VibeVoice-Realtime-0.5B,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,Gensyn/Qwen2.5-0.5B-Instruct,5,0.3181,2000,"[0.236, 0.2485, 0.3715, 0.3685, 0.366]"
+Qwen/Qwen2.5-0.5B,Qwen/Qwen2.5-Coder-0.5B,5,0.13540000000000002,2000,"[0.1685, 0.139, 0.082, 0.147, 0.1405]"
+Qwen/Qwen2.5-0.5B,unsloth/Qwen2.5-0.5B,5,1.0,2000,"[1.0, 1.0, 1.0, 1.0, 1.0]"
+Qwen/Qwen2.5-0.5B,mlx-community/Qwen2.5-0.5B-Instruct-4bit,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,numind/NuExtract-1.5-tiny,5,0.6426000000000001,2000,"[0.5015, 0.6025, 0.7395, 0.66, 0.7095]"
+Qwen/Qwen2.5-0.5B,alamios/DeepSeek-R1-DRAFT-Qwen2.5-0.5B,5,0.3452,2000,"[0.3805, 0.286, 0.3715, 0.32, 0.368]"
+Qwen/Qwen2.5-0.5B,dphn/Dolphin3.0-Qwen2.5-0.5B,5,0.2415,2000,"[0.1415, 0.214, 0.328, 0.31, 0.214]"
+Qwen/Qwen2.5-0.5B,mlx-community/Qwen2.5-0.5B-Instruct-8bit,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,mozilla-ai/Qwen2.5-0.5B-Instruct-llamafile,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,DuoGuard/DuoGuard-0.5B,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,mlx-community/VibeVoice-Realtime-0.5B-fp16,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,plaguss/Qwen2.5-0.5B-Math-Shepherd-PRM-0.1,5,0.7555,2000,"[0.723, 0.69, 0.8165, 0.766, 0.782]"
+Qwen/Qwen2.5-0.5B,jhu-clsp/rank1-0.5b,5,0.1874,2000,"[0.112, 0.199, 0.3125, 0.1145, 0.199]"
+Qwen/Qwen2.5-0.5B,VLA-Adapter/LIBERO-Spatial-Pro,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,VLA-Adapter/LIBERO-Spatial,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,Baon2024/Qwen2.5-0.5B-SFT-training3,5,0.1086,2000,"[0.086, 0.081, 0.193, 0.104, 0.079]"
+Qwen/Qwen2.5-0.5B,44David/qwen-0.5b-reasoning-v2,5,0.0668,2000,"[0.0545, 0.066, 0.057, 0.0765, 0.08]"
+Qwen/Qwen2.5-0.5B,wulli/Qwen2.5-0.5B-sft-capybara,5,0.29710000000000003,2000,"[0.2995, 0.241, 0.2635, 0.3675, 0.314]"
+Qwen/Qwen2.5-0.5B,tjake/Qwen2.5-0.5B-Instruct-JQ4,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,mlx-community/Qwen2.5-0.5B-Instruct-bf16,5,0.3181,2000,"[0.236, 0.2485, 0.3715, 0.3685, 0.366]"
+Qwen/Qwen2.5-0.5B,VLA-Adapter/LIBERO-Long,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,VLA-Adapter/LIBERO-Long-Pro,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,BurnyCoder/Qwen2.5-0.5B-Capybara,5,0.37329999999999997,2000,"[0.282, 0.296, 0.5255, 0.3855, 0.3775]"
+Qwen/Qwen2.5-0.5B,sail/Sailor2-1B,5,0.0435,2000,"[0.037, 0.0495, 0.0415, 0.0755, 0.014]"
+Qwen/Qwen2.5-0.5B,VLA-Adapter/LIBERO-Object-Pro,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,hypaai/qwen_run_2025-12-03_10-36-19,5,0.0009000000000000001,2000,"[0.0, 0.0005, 0.0005, 0.003, 0.0005]"
+Qwen/Qwen2.5-0.5B,artificialguybr/Qwen2.5-0.5B-OpenHermes2.5,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,werchota/werchota-ai-v1,5,0.3386,2000,"[0.2335, 0.213, 0.4265, 0.395, 0.425]"
+Qwen/Qwen2.5-0.5B,VLA-Adapter/LIBERO-Goal-Pro,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,PHZane/PCF_ID-0.5B,5,0.0646,2000,"[0.0255, 0.0535, 0.1065, 0.069, 0.0685]"
+Qwen/Qwen2.5-0.5B,VLA-Adapter/LIBERO-Object,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,VLA-Adapter/CALVIN-ABC-Pro,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,AryanNsc/IND-QWENTTS-V1,5,0.006500000000000001,2000,"[0.002, 0.0055, 0.0045, 0.0065, 0.014]"
+Qwen/Qwen2.5-0.5B,seiftarek22/flex,5,1.0,2000,"[1.0, 1.0, 1.0, 1.0, 1.0]"
+Qwen/Qwen2.5-0.5B,Prickly-Labs/Shehab-0.5B-Instruct-v0.1a,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,atlasia/Al-Atlas-0.5B,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,HeyDunaX/ptitqas,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,alamios/Qwenstral-Small-3.1-0.5B,5,0.0125,2000,"[0.0095, 0.012, 0.013, 0.0175, 0.0105]"
+Qwen/Qwen2.5-0.5B,llaa33219/BokantLM0.1-0.5B,5,0.6115,2000,"[0.5275, 0.46, 0.7035, 0.6725, 0.694]"
+Qwen/Qwen2.5-0.5B,slprl/slam_scaled,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,p1atdev/qwen2.5-0.5b-grpo-math-01,5,0.0082,2000,"[0.0075, 0.0035, 0.015, 0.005, 0.01]"
+Qwen/Qwen2.5-0.5B,kakahuhu/math-grade1-chinese,5,0.5917,2000,"[0.515, 0.43, 0.6795, 0.6925, 0.6415]"
+Qwen/Qwen2.5-0.5B,jiangchengchengNLP/qwenva,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,anmolagarwal999/Qwen2_5-0_5B-Instructsft_savedmath_dataset_based_on_deepseek_distilled_traces_epoch_370,5,0.2854,2000,"[0.202, 0.241, 0.305, 0.3305, 0.3485]"
+Qwen/Qwen2.5-0.5B,slprl/slam,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,BounharAbdelaziz/Al-Atlas-LLM-0.5B,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,rdsm/QwenPhi-4-0.5b-Draft,5,0.0161,2000,"[0.016, 0.015, 0.0155, 0.0155, 0.0185]"
+Qwen/Qwen2.5-0.5B,Vikhrmodels/salt-qwen2.5-0.5b-tts,5,0.0162,2000,"[0.0135, 0.0225, 0.01, 0.013, 0.022]"
+Qwen/Qwen2.5-0.5B,ginkohub/QwenHermes,5,0.12940000000000002,2000,"[0.059, 0.066, 0.227, 0.214, 0.081]"
+Qwen/Qwen2.5-0.5B,piimaila/Qwen2.5-0.5B-openvino,0,-1.0,2000,[]
+Qwen/Qwen2.5-0.5B,alothomas/Qwen2.5-0.5B-PRM-RAD-balanced-150k,5,0.023100000000000002,2000,"[0.0285, 0.022, 0.0255, 0.0105, 0.029]"
+Qwen/Qwen2.5-0.5B,VLA-Adapter/LIBERO-Goal,0,-1.0,2000,[]

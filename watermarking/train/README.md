@@ -111,7 +111,6 @@ python train_and_eval_overlap.py \
     --text_column "text"
 ```
 
-**Note:** No special formatting (like "### Instruction:") is applied. Text is used directly for training, matching the evaluation approach where only raw prompts are used.
 
 ## Key Parameters
 
@@ -165,7 +164,7 @@ output_dir/
 └── final_model/                       # Final fine-tuned model
 ```
 
-## Examples
+<!-- ## Examples
 
 ### Example 1: Quick Test (5 minutes)
 
@@ -259,138 +258,4 @@ python train_and_eval_overlap.py \
     --max_steps 1000 \
     --eval_steps 100
 ```
-
-## Relationship to `../new/` Directory
-
-This tool uses the same overlap testing methodology from the `../new/` directory:
-
-| Function | Source | Purpose |
-|----------|--------|---------|
-| `compute_bottomk_vocab_for_model()` | `utils/bottomk_processor.py` | Compute bottom-k vocabulary |
-| `sample_fingerprint_prompt()` | `utils/fingerprint_gen.py` | Generate fingerprint prompts |
-| `overlap_ratio()` | Same logic as `new/run_bottomk_subspace_overlap_from_base.py` | Calculate overlap |
-
-**Key Difference:**
-- `new/`: Compares a fixed base model with multiple already-fine-tuned models
-- `train/`: Tracks overlap changes **during** the fine-tuning process
-
-## Important: Training Sequence Length
-
-**By default, the script uses the tokenizer's `model_max_length` for training** (typically 2048 for Qwen models).
-
-This is important because:
-- ✅ **Training with full sequences** preserves the model's original behavior better
-- ✅ **Higher overlap** with base model (more similar to how the base model was trained)
-- ✅ **More representative training** (not just article beginnings)
-
-**Evaluation always uses the prompt length** (typically short, <100 tokens), so training length doesn't affect evaluation.
-
-If you want to use a specific max_length:
-```bash
---max_length 512  # Truncate to 512 tokens during training
-```
-
-## Troubleshooting
-
-### Understanding Overlap Changes
-
-**What is normal:**
-- Step 1: overlap = 1.0 (model hasn't changed yet)
-- Overlap decreases as training progresses (model is changing)
-- **How fast it decreases depends on**: learning rate, dataset, model size, training steps, **sequence length**
-
-**The overlap decrease is NOT a bug** - it shows the model is learning and changing!
-
-**If you want slower changes (higher overlap):**
-```bash
---learning_rate 1e-6  # Lower learning rate
-# OR use default max_length (tokenizer's model_max_length)
-```
-
-**If you want faster changes (lower overlap):**
-```bash
---learning_rate 2e-5  # Higher learning rate
---max_length 512      # Shorter sequences
-```
-
-### NaN Loss / Gradient
-
-**Problem:** Loss becomes NaN during training
-
-**Solution:** Lower the learning rate:
-```bash
---learning_rate 5e-6  # Default (was 2e-5)
-```
-
-Or even lower:
-```bash
---learning_rate 1e-6
-```
-
-**Note:** The script now includes gradient clipping (`max_grad_norm=1.0`) to prevent NaN.
-
-### Too Much Logging
-
-**Problem:** Console is spammed with training logs
-
-**Solution:** Increase logging interval:
-```bash
---logging_steps 100  # Default is 50
-```
-
-### FP16 Gradient Scaling Error
-
-**Problem:** `ValueError: Attempting to unscale FP16 gradients`
-
-**Solution:** FP16 is now disabled by default. If you want to use it:
-```bash
---use_fp16  # Add this flag to enable FP16
-```
-
-**Note:** FP16 can cause gradient scaling issues on some systems. Use FP32 (default) for stability.
-
-### Downloading Too Much Data (Wikipedia)
-
-**Problem:** Wikipedia dataset is downloading all 41 files (~10GB)
-
-**Solution:** Always set `--num_train_samples`:
-```bash
---num_train_samples 20000  # For 1000 steps
-```
-
-The script uses streaming mode, so it only loads what you need.
-
-**Calculate samples needed:**
-```
-samples = max_steps × batch_size × gradient_accumulation × 1.25
-```
-
-Examples:
-- 1000 steps → 20,000 samples
-- 500 steps → 10,000 samples  
-- 100 steps → 2,000 samples
-
-### Out of Memory
-
-```bash
---per_device_train_batch_size 2 \
---gradient_accumulation_steps 8 \
---num_fingerprints 5
-```
-
-### Training Too Slow
-
-```bash
---num_train_samples 5000 \
---eval_steps 200
-```
-
-### CSV Format Error
-
-Check your CSV:
-```python
-import pandas as pd
-df = pd.read_csv("your_file.csv")
-print(df.columns)
-print(df.head())
-```
+ -->

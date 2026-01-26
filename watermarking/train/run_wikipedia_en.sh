@@ -52,7 +52,7 @@ python train_and_eval_overlap.py \
     --warmup_steps 300 \
     --max_grad_norm 0.5 \
     --use_bf16 \
-    --logging_steps 50
+    --logging_steps 5
 
 echo ""
 echo "=================================="
