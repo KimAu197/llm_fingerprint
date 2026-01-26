@@ -59,17 +59,34 @@ def main():
     
     args = parser.parse_args()
     
+    # Check if output directory exists
+    output_path = Path(args.output_dir)
+    if not output_path.exists():
+        print(f"Error: Output directory does not exist: {args.output_dir}")
+        print(f"Absolute path: {output_path.absolute()}")
+        return
+    
+    # List all files in output directory for debugging
+    print(f"Checking output directory: {args.output_dir}")
+    print(f"Absolute path: {output_path.absolute()}")
+    all_files = list(output_path.glob("*"))
+    print(f"\nAll files in directory ({len(all_files)} files):")
+    for f in sorted(all_files)[:20]:  # Show first 20 files
+        print(f"  - {f.name}")
+    if len(all_files) > 20:
+        print(f"  ... and {len(all_files) - 20} more files")
+    
     # Load tokenizer
     from transformers import AutoTokenizer
-    print(f"Loading tokenizer: {args.tokenizer}")
+    print(f"\nLoading tokenizer: {args.tokenizer}")
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, trust_remote_code=True)
     
     # Find all available debug files
-    output_path = Path(args.output_dir)
     debug_files = sorted(output_path.glob("wordlist_debug_step_*.json"))
     available_steps = [int(f.stem.split("_")[-1]) for f in debug_files]
     
-    print(f"\nAvailable steps: {available_steps}")
+    print(f"\nFound {len(debug_files)} debug files")
+    print(f"Available steps: {available_steps}")
     
     # Analyze specified steps
     steps_to_analyze = [s for s in args.steps if s in available_steps]
