@@ -62,7 +62,7 @@ def main():
         help="Fine-tuned model path (e.g., './quick_debug/final_model')"
     )
     parser.add_argument(
-        "--num_fingerprints", type=int, default=10,
+        "--num_fingerprints", type=int, default=8,
         help="Number of fingerprints to test (default: 10)"
     )
     parser.add_argument(

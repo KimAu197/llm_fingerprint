@@ -1,26 +1,26 @@
 #!/bin/bash
 
-# Example script to run overlap experiment with Weights & Biases tracking
+# Example script to run overlap experiment with Japanese Wikipedia
 # 
 # Usage:
 #   1. Set your wandb API key:
 #      export WANDB_API_KEY="your_api_key_here"
 #   
 #   2. Run this script:
-#      bash run_with_wandb.sh
+#      bash run_wikipedia_ja.sh
 
 # Configuration
 BASE_MODEL="Qwen/Qwen2.5-0.5B"
 DATASET="wikimedia/wikipedia"
-DATASET_CONFIG="20231101.en"
-OUTPUT_DIR="./experiment_wandb"
+DATASET_CONFIG="20231101.ja"  # Japanese Wikipedia
+OUTPUT_DIR="./experiment_wiki_ja"
 MAX_STEPS=500
 EVAL_STEPS=2
 NUM_SAMPLES=20000
 
 # Wandb configuration
 WANDB_PROJECT="model-overlap"
-WANDB_RUN_NAME="wiki_en_experiment"
+WANDB_RUN_NAME="wiki_ja_experiment"
 
 # Optional: Set API key here (or use environment variable)
 # export WANDB_API_KEY="wandb_v1_YOUR_API_KEY_HERE"
@@ -52,7 +52,7 @@ python train_and_eval_overlap.py \
     --warmup_steps 300 \
     --max_grad_norm 0.5 \
     --use_bf16 \
-    --logging_steps 50
+    --logging_steps 5
 
 echo ""
 echo "=================================="
