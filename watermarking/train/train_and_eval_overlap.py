@@ -286,7 +286,7 @@ def load_and_prepare_dataset(
     csv_path: Optional[str] = None,
     text_column: str = "text",
     tokenizer = None,
-    max_length: int = 512,
+    max_length: Optional[int] = None,
     num_samples: Optional[int] = None,
 ):
     """
@@ -301,12 +301,25 @@ def load_and_prepare_dataset(
         csv_path: Path to custom CSV file
         text_column: Column name for text data
         tokenizer: HuggingFace tokenizer
-        max_length: Maximum sequence length
+        max_length: Maximum sequence length (None = use tokenizer's model_max_length)
         num_samples: Limit number of samples (None = use all)
         
     Returns:
         Tokenized dataset ready for training
     """
+    
+    # Use tokenizer's default max_length if not specified
+    if max_length is None:
+        max_length = tokenizer.model_max_length
+        # Some tokenizers have absurdly large max_length (e.g., 1000000000000000019884624838600)
+        if max_length > 100000:
+            max_length = 2048
+            print(f"[data] Tokenizer max_length too large ({tokenizer.model_max_length}), capping at 2048")
+        else:
+            print(f"[data] Using tokenizer's model_max_length: {max_length}")
+    else:
+        print(f"[data] Using specified max_length: {max_length}")
+    
     # Load from CSV or HuggingFace
     if csv_path:
         dataset = load_csv_dataset(
@@ -547,8 +560,8 @@ def main():
         help="Column name for text data in CSV or dataset (default: 'text')"
     )
     parser.add_argument(
-        "--max_length", type=int, default=512,
-        help="Maximum sequence length for tokenization"
+        "--max_length", type=int, default=None,
+        help="Maximum sequence length for training (None = use tokenizer's model_max_length, typically 2048-32768)"
     )
     parser.add_argument(
         "--num_train_samples", type=int, default=None,
