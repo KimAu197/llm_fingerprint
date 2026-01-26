@@ -590,7 +590,7 @@ def main():
         help="Training batch size per device"
     )
     parser.add_argument(
-        "--gradient_accumulation_steps", type=int, default=4,
+        "--gradient_accumulation_steps", type=int, default=1,
         help="Number of gradient accumulation steps"
     )
     parser.add_argument(
