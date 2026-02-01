@@ -1,0 +1,3 @@
+family,threshold,before_n,before_fn,before_fnr,after_n,after_fn,after_fnr,fnr_change
+Qwen,0.0082,103,3,0.02912621359223301,13,0,0.0,-0.02912621359223301
+LLaMA,0.0254,104,5,0.04807692307692308,15,0,0.0,-0.04807692307692308
