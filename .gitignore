@@ -11,3 +11,5 @@ report/
 *.synctex.gz
 *.fdb_latexmk
 *.fls
+
+result/result_2.10/data/model_ground_truth_finetune_llm_logit_access.csv
