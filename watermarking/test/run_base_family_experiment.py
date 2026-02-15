@@ -25,6 +25,8 @@ import csv
 import json
 import random
 import sys
+import time
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 from collections import defaultdict
@@ -35,11 +37,74 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from watermarking.utils import (
+from utils import (
     set_seed,
     sample_fingerprint_prompt,
     compute_bottomk_vocab_for_model,
 )
+
+
+# ----------------- Timing and GPU Utilities -----------------
+
+
+def get_gpu_memory_info():
+    """Get current GPU memory usage."""
+    if torch.cuda.is_available():
+        allocated = torch.cuda.memory_allocated() / 1024**3  # GB
+        reserved = torch.cuda.memory_reserved() / 1024**3  # GB
+        total = torch.cuda.get_device_properties(0).total_memory / 1024**3  # GB
+        return {
+            'allocated_gb': allocated,
+            'reserved_gb': reserved,
+            'total_gb': total,
+            'free_gb': total - allocated,
+            'device_name': torch.cuda.get_device_name(0),
+        }
+    return None
+
+
+def log_gpu_memory(prefix=""):
+    """Log GPU memory usage."""
+    gpu_info = get_gpu_memory_info()
+    if gpu_info:
+        print(f"  [GPU {prefix}] {gpu_info['device_name']}")
+        print(f"    Allocated: {gpu_info['allocated_gb']:.2f} GB")
+        print(f"    Reserved:  {gpu_info['reserved_gb']:.2f} GB")
+        print(f"    Free:      {gpu_info['free_gb']:.2f} GB / {gpu_info['total_gb']:.2f} GB")
+    else:
+        print(f"  [GPU {prefix}] No CUDA device available")
+
+
+def format_time(seconds):
+    """Format seconds into human-readable time."""
+    return str(timedelta(seconds=int(seconds)))
+
+
+class Timer:
+    """Simple timer context manager."""
+    def __init__(self, name="Operation"):
+        self.name = name
+        self.start_time = None
+        self.end_time = None
+        
+    def __enter__(self):
+        self.start_time = time.time()
+        print(f"\n⏱️  [{self.name}] Started at {datetime.now().strftime('%H:%M:%S')}")
+        log_gpu_memory("Start")
+        return self
+    
+    def __exit__(self, *args):
+        self.end_time = time.time()
+        elapsed = self.end_time - self.start_time
+        print(f"⏱️  [{self.name}] Completed in {format_time(elapsed)}")
+        log_gpu_memory("End")
+    
+    @property
+    def elapsed(self):
+        """Get elapsed time."""
+        if self.end_time is None:
+            return time.time() - self.start_time
+        return self.end_time - self.start_time
 
 
 # ----------------- Model Loading -----------------
@@ -48,6 +113,8 @@ from watermarking.utils import (
 def load_hf_model_and_tokenizer(model_name: str, device: str = "cuda"):
     """Load HuggingFace model and tokenizer."""
     print(f"  Loading: {model_name}")
+    load_start = time.time()
+    
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
     if tokenizer.pad_token_id is None and tokenizer.eos_token_id is not None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
@@ -56,17 +123,27 @@ def load_hf_model_and_tokenizer(model_name: str, device: str = "cuda"):
     if device:
         model.to(device)
     model.eval()
+    
+    load_time = time.time() - load_start
+    print(f"    ✓ Loaded in {load_time:.2f}s")
+    log_gpu_memory("After Load")
+    
     return model, tokenizer
 
 
 def unload_hf_model(model, tokenizer) -> None:
     """Free CUDA/MPS memory."""
+    print(f"    Unloading model...")
+    log_gpu_memory("Before Unload")
+    
     del model
     del tokenizer
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
     elif torch.backends.mps.is_available():
         torch.mps.empty_cache()
+    
+    log_gpu_memory("After Unload")
 
 
 # ----------------- CSV Processing -----------------
@@ -235,6 +312,27 @@ def run_experiment(args: argparse.Namespace) -> None:
     """Main experiment logic."""
     set_seed(args.seed)
     
+    experiment_start = time.time()
+    
+    # Log experiment configuration
+    print("=" * 80)
+    print("EXPERIMENT CONFIGURATION")
+    print("=" * 80)
+    print(f"Device: {args.device}")
+    print(f"Num fingerprints per base: {args.num_pairs}")
+    print(f"Negative samples per model: {args.num_negative_samples}")
+    print(f"Bottom-k vocab size: {args.bottom_k_vocab}")
+    print(f"Random seed: {args.seed}")
+    print()
+    
+    # Log system info
+    if torch.cuda.is_available():
+        print(f"CUDA Device: {torch.cuda.get_device_name(0)}")
+        print(f"CUDA Version: {torch.version.cuda}")
+        print(f"Total GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
+    print(f"PyTorch Version: {torch.__version__}")
+    print()
+    
     # Load experiment data
     print("=" * 80)
     print("LOADING EXPERIMENT DATA")
@@ -245,9 +343,13 @@ def run_experiment(args: argparse.Namespace) -> None:
     print(f"Total models: {len(all_models)}")
     for base_model, derivatives in families.items():
         print(f"  {base_model}: {len(derivatives)} derivatives")
+    print()
     
     # Create output path
     output_csv = Path(args.output_dir) / f"base_family_overlap_results.csv"
+    
+    # Track overall statistics
+    family_stats = []
     
     # Process each base model family
     for family_idx, (base_model_name, derivatives) in enumerate(families.items(), 1):
@@ -256,72 +358,87 @@ def run_experiment(args: argparse.Namespace) -> None:
         print("=" * 80)
         print(f"Derivatives: {len(derivatives)}")
         
+        family_start_time = time.time()
+        
         # 1. Load base model
         print(f"\n[1] Loading base model...")
-        try:
-            base_model, base_tok = load_hf_model_and_tokenizer(base_model_name, device=args.device)
-        except Exception as e:
-            print(f"[ERROR] Failed to load base model {base_model_name}: {e}")
-            continue
+        with Timer(f"Load Base Model ({base_model_name})"):
+            try:
+                base_model, base_tok = load_hf_model_and_tokenizer(base_model_name, device=args.device)
+            except Exception as e:
+                print(f"[ERROR] Failed to load base model {base_model_name}: {e}")
+                continue
         
         try:
             # 2. Generate fingerprints
             print(f"\n[2] Generating {args.num_pairs} fingerprints...")
-            fingerprints = generate_fingerprints_for_base(
-                model=base_model,
-                tokenizer=base_tok,
-                num_pairs=args.num_pairs,
-                prompt_style=args.prompt_style,
-                k_bottom_random_prefix=args.k_bottom_random_prefix,
-                total_len=args.total_len,
-            )
+            with Timer(f"Generate {args.num_pairs} Fingerprints"):
+                fingerprints = generate_fingerprints_for_base(
+                    model=base_model,
+                    tokenizer=base_tok,
+                    num_pairs=args.num_pairs,
+                    prompt_style=args.prompt_style,
+                    k_bottom_random_prefix=args.k_bottom_random_prefix,
+                    total_len=args.total_len,
+                )
             
             # 3. Compute base model's bottom-k vocab
             print(f"\n[3] Computing base model bottom-k vocab...")
-            base_bottomk_cache = compute_model_bottomk_cache(
-                base_model, base_tok, fingerprints, args.bottom_k_vocab, args.device
-            )
+            with Timer("Compute Base Model Bottom-K Vocab"):
+                base_bottomk_cache = compute_model_bottomk_cache(
+                    base_model, base_tok, fingerprints, args.bottom_k_vocab, args.device
+                )
             
             # 4. Test derived models (POSITIVE SAMPLES)
             print(f"\n[4] Testing {len(derivatives)} derived models (POSITIVE SAMPLES)...")
+            positive_start = time.time()
+            positive_count = 0
+            
             for deriv_idx, deriv_entry in enumerate(derivatives, 1):
                 derived_model_name = deriv_entry['derived_model']
                 print(f"\n  [{deriv_idx}/{len(derivatives)}] Testing: {derived_model_name}")
                 
                 try:
-                    derived_model, derived_tok = load_hf_model_and_tokenizer(
-                        derived_model_name, device=args.device
-                    )
-                    
-                    # Compute derived model's bottom-k vocab
-                    print(f"    Computing derived model bottom-k vocab...")
-                    derived_bottomk_cache = compute_model_bottomk_cache(
-                        derived_model, derived_tok, fingerprints, args.bottom_k_vocab, args.device
-                    )
-                    
-                    # Compute overlap scores
-                    scores = compute_overlap_scores(base_bottomk_cache, derived_bottomk_cache)
-                    avg_score = sum(scores) / len(scores) if scores else 0.0
-                    print(f"    Avg overlap: {avg_score:.4f}")
-                    
-                    # Save result
-                    result = {
-                        "base_model": base_model_name,
-                        "test_model": derived_model_name,
-                        "pair_scores": scores,
-                        "bottom_k_vocab_size": args.bottom_k_vocab,
-                    }
-                    save_result(result, output_csv, is_positive=True)
-                    
-                    unload_hf_model(derived_model, derived_tok)
+                    with Timer(f"Test Positive {deriv_idx}/{len(derivatives)}"):
+                        derived_model, derived_tok = load_hf_model_and_tokenizer(
+                            derived_model_name, device=args.device
+                        )
+                        
+                        # Compute derived model's bottom-k vocab
+                        print(f"    Computing derived model bottom-k vocab...")
+                        derived_bottomk_cache = compute_model_bottomk_cache(
+                            derived_model, derived_tok, fingerprints, args.bottom_k_vocab, args.device
+                        )
+                        
+                        # Compute overlap scores
+                        scores = compute_overlap_scores(base_bottomk_cache, derived_bottomk_cache)
+                        avg_score = sum(scores) / len(scores) if scores else 0.0
+                        print(f"    ✓ Avg overlap: {avg_score:.4f}")
+                        
+                        # Save result
+                        result = {
+                            "base_model": base_model_name,
+                            "test_model": derived_model_name,
+                            "pair_scores": scores,
+                            "bottom_k_vocab_size": args.bottom_k_vocab,
+                        }
+                        save_result(result, output_csv, is_positive=True)
+                        positive_count += 1
+                        
+                        unload_hf_model(derived_model, derived_tok)
                     
                 except Exception as e:
                     print(f"    [ERROR] Failed on {derived_model_name}: {e}")
                     import traceback
                     traceback.print_exc()
             
+            positive_time = time.time() - positive_start
+            print(f"\n  ✓ Positive samples: {positive_count}/{len(derivatives)} completed in {format_time(positive_time)}")
+            
             # 5. Test models from other families (NEGATIVE SAMPLES)
             print(f"\n[5] Testing NEGATIVE SAMPLES (cross-family)...")
+            negative_start = time.time()
+            negative_count = 0
             
             # Get all models from other families
             other_family_models = []
@@ -346,6 +463,7 @@ def run_experiment(args: argparse.Namespace) -> None:
                         print(f"    [{neg_idx}/{num_negative_per_model}] vs {neg_model_name}")
                         
                         try:
+                            neg_start = time.time()
                             neg_model, neg_tok = load_hf_model_and_tokenizer(
                                 neg_model_name, device=args.device
                             )
@@ -358,7 +476,8 @@ def run_experiment(args: argparse.Namespace) -> None:
                             # Compute overlap scores
                             scores = compute_overlap_scores(base_bottomk_cache, neg_bottomk_cache)
                             avg_score = sum(scores) / len(scores) if scores else 0.0
-                            print(f"      Avg overlap: {avg_score:.4f}")
+                            neg_time = time.time() - neg_start
+                            print(f"      ✓ Avg overlap: {avg_score:.4f} (took {neg_time:.1f}s)")
                             
                             # Save result
                             result = {
@@ -368,19 +487,73 @@ def run_experiment(args: argparse.Namespace) -> None:
                                 "bottom_k_vocab_size": args.bottom_k_vocab,
                             }
                             save_result(result, output_csv, is_positive=False)
+                            negative_count += 1
                             
                             unload_hf_model(neg_model, neg_tok)
                             
                         except Exception as e:
                             print(f"      [ERROR] Failed on {neg_model_name}: {e}")
             
+            negative_time = time.time() - negative_start
+            print(f"\n  ✓ Negative samples: {negative_count} completed in {format_time(negative_time)}")
+            
         finally:
             unload_hf_model(base_model, base_tok)
+        
+        # Log family completion
+        family_time = time.time() - family_start_time
+        family_stats.append({
+            'family': base_model_name,
+            'time': family_time,
+            'positive_count': positive_count,
+            'negative_count': negative_count,
+        })
+        
+        print(f"\n{'='*80}")
+        print(f"✓ FAMILY {family_idx} COMPLETED")
+        print(f"  Time: {format_time(family_time)}")
+        print(f"  Positive samples: {positive_count}")
+        print(f"  Negative samples: {negative_count}")
+        print(f"{'='*80}")
+    
+    # Log overall completion
+    experiment_time = time.time() - experiment_start
+    
+    print("\n" + "=" * 80)
+    print("EXPERIMENT SUMMARY")
+    print("=" * 80)
+    print(f"\nTotal time: {format_time(experiment_time)}")
+    print(f"Families processed: {len(family_stats)}")
+    print()
+    print("Per-family breakdown:")
+    for i, stat in enumerate(family_stats, 1):
+        print(f"\n  {i}. {stat['family']}")
+        print(f"     Time: {format_time(stat['time'])}")
+        print(f"     Positive: {stat['positive_count']}, Negative: {stat['negative_count']}")
     
     print("\n" + "=" * 80)
     print("EXPERIMENT COMPLETE")
     print("=" * 80)
     print(f"Results saved to: {output_csv}")
+    
+    # Save timing summary to JSON
+    summary_path = Path(args.output_dir) / "experiment_timing_summary.json"
+    summary = {
+        'total_time_seconds': experiment_time,
+        'total_time_formatted': format_time(experiment_time),
+        'num_families': len(family_stats),
+        'families': family_stats,
+        'config': {
+            'num_pairs': args.num_pairs,
+            'num_negative_samples': args.num_negative_samples,
+            'bottom_k_vocab': args.bottom_k_vocab,
+            'device': args.device,
+        },
+        'timestamp': datetime.now().isoformat(),
+    }
+    with open(summary_path, 'w') as f:
+        json.dump(summary, f, indent=2)
+    print(f"Timing summary saved to: {summary_path}")
 
 
 # ----------------- CLI -----------------
