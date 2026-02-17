@@ -553,6 +553,7 @@ def run_experiment(args: argparse.Namespace) -> None:
     
     # Save timing summary to JSON
     summary_path = Path(args.output_dir) / "experiment_timing_summary.json"
+    summary_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
     summary = {
         'total_time_seconds': experiment_time,
         'total_time_formatted': format_time(experiment_time),
