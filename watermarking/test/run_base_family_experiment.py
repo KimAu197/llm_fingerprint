@@ -351,8 +351,23 @@ def run_experiment(args: argparse.Namespace) -> None:
     # Track overall statistics
     family_stats = []
     
+    # Filter families if family_index is specified
+    families_list = list(families.items())
+    if args.family_index is not None:
+        if 1 <= args.family_index <= len(families_list):
+            print(f"\n🎯 Running ONLY Family {args.family_index}")
+            families_to_run = [families_list[args.family_index - 1]]
+        else:
+            print(f"\n❌ Invalid family_index {args.family_index}. Must be 1-{len(families_list)}")
+            return
+    else:
+        print(f"\n🎯 Running ALL {len(families_list)} families")
+        families_to_run = families_list
+    
+    print()
+    
     # Process each base model family
-    for family_idx, (base_model_name, derivatives) in enumerate(families.items(), 1):
+    for family_idx, (base_model_name, derivatives) in enumerate(families_to_run, 1):
         print("\n" + "=" * 80)
         print(f"FAMILY {family_idx}/{len(families)}: {base_model_name}")
         print("=" * 80)
@@ -623,6 +638,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=5,
         help="Number of negative samples (other-family models) per derived model"
+    )
+    parser.add_argument(
+        "--family_index",
+        type=int,
+        default=None,
+        help="Run only specific family (1-6). If not set, runs all families."
     )
     return parser.parse_args()
 
