@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import unicodedata
 import difflib
-from typing import Tuple
+from typing import Tuple, List, Sequence
 
 
 # =============== Basic text normalization ===============
@@ -149,6 +149,35 @@ def lineage_score_simple(base_y: str, suspect_y: str, k_prefix: int = 30, clean:
         "LineageScoreSimple": score,
         "clean_used": clean,
     }
+
+
+# =============== Bottom-k Vocabulary Overlap ===============
+
+def overlap_ratio(set_a: Sequence[int], set_b: Sequence[int]) -> float:
+    """
+    Compute overlap ratio between two token ID sets.
+    
+    Used for bottom-k vocabulary fingerprinting: measures how much
+    the bottom-k vocabulary of two models overlap.
+    
+    Note: When both sets have the same size k (typical for bottom-k vocab),
+    this metric is symmetric: overlap_ratio(A, B) = overlap_ratio(B, A).
+    
+    Args:
+        set_a: First set of token IDs (typically base model's bottom-k vocab)
+        set_b: Second set of token IDs (typically test model's bottom-k vocab)
+    
+    Returns:
+        Overlap ratio: |intersection| / |set_a|
+        
+    Example:
+        If both sets have k=2000 tokens and share 1500 of them:
+        overlap_ratio(set_a, set_b) = 1500 / 2000 = 0.75
+    """
+    sa, sb = set(set_a), set(set_b)
+    if len(sa) == 0:
+        return 0.0
+    return len(sa.intersection(sb)) / float(len(sa))
 
 
 
