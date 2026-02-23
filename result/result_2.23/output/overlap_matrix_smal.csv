@@ -1,0 +1,7 @@
+,Qwen/Qwen2.5-1.5B,Qwen/Qwen2.5-1.5B-Instruct,meta-llama/Meta-Llama-3.1-8B,meta-llama/Llama-3.1-8B-Instruct,Qwen/Qwen3-0.6B-base,Qwen/Qwen3-Embedding-0.6B
+Qwen/Qwen2.5-1.5B,1.0,0.49640000000000006,0.0188,0.0279,0.0494,0.0189
+Qwen/Qwen2.5-1.5B-Instruct,0.5662,1.0,0.0153,0.022,0.0735,0.0248
+meta-llama/Meta-Llama-3.1-8B,0.018099999999999998,0.0178,1.0,0.1275,0.0206,0.0157
+meta-llama/Llama-3.1-8B-Instruct,0.0229,0.022,0.23020000000000002,1.0,0.016,0.0142
+Qwen/Qwen3-0.6B-base,0.0368,0.0505,0.016900000000000002,0.0186,1.0,0.0506
+Qwen/Qwen3-Embedding-0.6B,0.0195,0.0195,0.0157,0.0126,0.0593,1.0
