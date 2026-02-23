@@ -140,6 +140,44 @@ def generate_fingerprints(
     return fingerprints
 
 
+# ----------------- Results Saving -----------------
+
+
+def save_matrix_to_csv(matrix: np.ndarray, models: List[str], output_path: Path) -> None:
+    """Save overlap matrix to CSV file."""
+    with open(output_path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        # Header row
+        writer.writerow([''] + models)
+        # Data rows
+        for i, model in enumerate(models):
+            writer.writerow([model] + list(matrix[i, :]))
+
+
+def update_matrix_row(matrix: np.ndarray, row_idx: int, models: List[str], output_path: Path) -> None:
+    """Update CSV file with new row data (incremental save)."""
+    # Read existing file if it exists
+    if output_path.exists():
+        with open(output_path, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            rows = list(reader)
+    else:
+        # Create new file with header
+        rows = [[''] + models]
+        # Add empty rows for all models
+        for model in models:
+            rows.append([model] + ['0.0'] * len(models))
+    
+    # Update the specific row (row_idx + 1 to account for header)
+    if row_idx + 1 < len(rows):
+        rows[row_idx + 1] = [models[row_idx]] + [str(val) for val in matrix[row_idx, :]]
+    
+    # Write back to file
+    with open(output_path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerows(rows)
+
+
 # ----------------- Bottom-k Computation -----------------
 
 
@@ -216,6 +254,16 @@ def run_experiment(args: argparse.Namespace) -> None:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     
+    # Define output paths
+    matrix_csv_path = output_dir / "overlap_matrix.csv"
+    matrix_npy_path = output_dir / "overlap_matrix.npy"
+    
+    # Initialize CSV file with header and empty rows
+    print("Initializing output files...")
+    save_matrix_to_csv(overlap_matrix, models, matrix_csv_path)
+    print(f"Output CSV: {matrix_csv_path}")
+    print()
+    
     # Process each model as "new model"
     for i, new_model_name in enumerate(models):
         print("\n" + "=" * 80)
@@ -291,6 +339,14 @@ def run_experiment(args: argparse.Namespace) -> None:
             candidate_time = time.time() - candidate_start
             print(f"\n  Candidates tested in {format_time(candidate_time)}")
             
+            # Save this row to CSV immediately
+            print(f"\n  Saving row {i+1}/{n_models} to CSV...")
+            update_matrix_row(overlap_matrix, i, models, matrix_csv_path)
+            
+            # Also save numpy array as backup
+            np.save(matrix_npy_path, overlap_matrix)
+            print(f"  Progress saved!")
+            
         finally:
             unload_hf_model(new_model, new_tok)
         
@@ -301,23 +357,14 @@ def run_experiment(args: argparse.Namespace) -> None:
     
     # Save results
     print("\n" + "=" * 80)
-    print("SAVING RESULTS")
+    print("FINAL SAVE")
     print("=" * 80)
     
-    # Save matrix as CSV
-    matrix_csv_path = output_dir / "overlap_matrix.csv"
-    with open(matrix_csv_path, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.writer(f)
-        # Header row
-        writer.writerow([''] + models)
-        # Data rows
-        for i, model in enumerate(models):
-            writer.writerow([model] + list(overlap_matrix[i, :]))
+    # Final save of matrix as CSV (should already be up to date)
+    save_matrix_to_csv(overlap_matrix, models, matrix_csv_path)
+    print(f"Final overlap matrix saved to: {matrix_csv_path}")
     
-    print(f"Overlap matrix saved to: {matrix_csv_path}")
-    
-    # Save matrix as numpy array
-    matrix_npy_path = output_dir / "overlap_matrix.npy"
+    # Final save of numpy array
     np.save(matrix_npy_path, overlap_matrix)
     print(f"Numpy array saved to: {matrix_npy_path}")
     
