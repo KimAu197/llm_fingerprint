@@ -31,7 +31,17 @@ def _build_allowed_token_set(tokenizer) -> List[int]:
             disallow.add(tid)
     if hasattr(tokenizer, "all_special_ids"):
         disallow.update(tokenizer.all_special_ids)
-    return [tid for tid in range(tokenizer.vocab_size) if tid not in disallow]
+    
+    allowed = [tid for tid in range(tokenizer.vocab_size) if tid not in disallow]
+    
+    # Safety check: ensure we have at least some allowed tokens
+    if len(allowed) == 0:
+        raise ValueError(
+            f"No allowed tokens found! vocab_size={tokenizer.vocab_size}, "
+            f"disallowed={len(disallow)} tokens. This model may not be suitable for fingerprinting."
+        )
+    
+    return allowed
 
 
 @torch.no_grad()

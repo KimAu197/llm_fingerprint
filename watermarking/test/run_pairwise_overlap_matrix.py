@@ -281,18 +281,32 @@ def run_experiment(args: argparse.Namespace) -> None:
                 print(f"[ERROR] Failed to load {new_model_name}: {e}")
                 continue
         
+        
+        skip_model = False
         try:
             # Generate fingerprints using new model
             print(f"\n[2] Generating {args.num_fingerprints} fingerprints...")
             with Timer(f"Generate Fingerprints"):
-                fingerprints = generate_fingerprints(
-                    new_model,
-                    new_tok,
-                    args.num_fingerprints,
-                    args.k_bottom_sampling,
-                    args.fingerprint_length,
-                    device,
-                )
+                try:
+                    fingerprints = generate_fingerprints(
+                        new_model,
+                        new_tok,
+                        args.num_fingerprints,
+                        args.k_bottom_sampling,
+                        args.fingerprint_length,
+                        device,
+                    )
+                except (ValueError, Exception) as e:
+                    print(f"[ERROR] Cannot generate fingerprints for {new_model_name}: {e}")
+                    print(f"Skipping this model...")
+                    skip_model = True
+            
+            if skip_model:
+                # Mark entire row as error
+                overlap_matrix[i, :] = -1.0
+                update_matrix_row(overlap_matrix, i, models, matrix_csv_path)
+                np.save(matrix_npy_path, overlap_matrix)
+                continue  # Skip to next model
             
             # Compute new model's bottom-k vocab
             print(f"\n[3] Computing new model's bottom-k vocab...")
