@@ -42,6 +42,7 @@ from utils import (
     unload_hf_model,
     sample_fingerprint_prompt,
     compute_bottomk_vocab_for_model,
+    compute_bottomk_vocab_batch,
     overlap_ratio,
 )
 
@@ -188,14 +189,11 @@ def compute_bottomk_cache(
     k: int,
     device,
 ) -> Dict[str, List[int]]:
-    """Compute bottom-k vocab for all fingerprints for a given model."""
-    cache = {}
-    for idx, fp in enumerate(fingerprints):
-        bottomk_ids = compute_bottomk_vocab_for_model(
-            model, tokenizer, k=k, device=device, prompt=fp
-        )
-        cache[fp] = bottomk_ids
-    return cache
+    """Compute bottom-k vocab for all fingerprints in a single batched forward pass."""
+    bottomk_lists = compute_bottomk_vocab_batch(
+        model, tokenizer, prompts=fingerprints, k=k, device=device
+    )
+    return {fp: bottomk_ids for fp, bottomk_ids in zip(fingerprints, bottomk_lists)}
 
 
 def compute_pairwise_overlap(

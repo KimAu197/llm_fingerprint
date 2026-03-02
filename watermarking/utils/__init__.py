@@ -25,5 +25,6 @@ from .model_loader import (
 from .bottomk_processor import (
     BottomKLogitsProcessor,
     compute_bottomk_vocab_for_model,
+    compute_bottomk_vocab_batch,
 )
 

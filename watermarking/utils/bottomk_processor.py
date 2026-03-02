@@ -133,6 +133,81 @@ def compute_bottomk_vocab_for_model(
     return bottomk_ids
 
 
+def compute_bottomk_vocab_batch(
+    model,
+    tokenizer,
+    prompts: List[str],
+    k: int = 2000,
+    device: Optional[str] = None,
+) -> List[List[int]]:
+    """
+    Batched version of compute_bottomk_vocab_for_model.
+
+    Tokenizes all prompts together, runs a single forward pass, and extracts
+    the last-token logits for each sequence. This avoids N sequential forward
+    passes when computing bottom-k for N fingerprints under the same model.
+
+    Causal LMs are padded on the left (the default for most HF tokenizers when
+    padding_side="left"), so the last real token is always at position -1 in
+    the output sequence, regardless of prompt length. If the tokenizer uses
+    right-padding, the function falls back to finding each sequence's true last
+    position via the attention mask.
+
+    Args:
+        model:      HF AutoModelForCausalLM
+        tokenizer:  corresponding tokenizer
+        prompts:    list of prompt strings (one per fingerprint)
+        k:          bottom-k size, e.g., 2000
+        device:     target device for inputs; if None, auto-detect from model
+
+    Returns:
+        List of bottom-k token id lists, one per prompt (same order).
+    """
+    if not prompts:
+        return []
+
+    model.eval()
+
+    if device is None:
+        try:
+            device = next(model.parameters()).device
+        except StopIteration:
+            device = "cpu"
+
+    if isinstance(device, torch.device):
+        device = str(device)
+
+    # Causal LMs should use left-padding so the last position is always real.
+    original_padding_side = tokenizer.padding_side
+    tokenizer.padding_side = "left"
+    try:
+        inputs = tokenizer(
+            prompts,
+            return_tensors="pt",
+            padding=True,
+            truncation=False,
+        ).to(device)
+
+        with torch.no_grad():
+            outputs = model(**inputs)
+            logits = outputs.logits  # (batch, seq_len, vocab_size)
+    finally:
+        tokenizer.padding_side = original_padding_side
+
+    # With left-padding, the last sequence position is always the last real token.
+    last_logits = logits[:, -1, :]  # (batch, vocab_size)
+
+    results = []
+    for i in range(len(prompts)):
+        logit = last_logits[i]
+        vocab_size = logit.shape[0]
+        k_eff = min(k, vocab_size)
+        _, bottomk_indices = torch.topk(logit, k=k_eff, largest=False)
+        results.append(bottomk_indices.tolist())
+
+    return results
+
+
 
 
 
