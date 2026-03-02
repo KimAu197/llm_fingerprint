@@ -23,11 +23,14 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import multiprocessing as mp
 import sys
 import time
+import traceback
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 from collections import defaultdict
 
 import torch
@@ -45,6 +48,48 @@ from utils import (
     compute_bottomk_vocab_batch,
     overlap_ratio,
 )
+
+
+# ----------------- Parallel Worker -----------------
+# Must be defined at module level so multiprocessing (spawn) can pickle it.
+
+
+def _candidate_worker(
+    args: Tuple[str, int, List[str], int],
+) -> Tuple[str, Optional[Dict[str, List[int]]], Optional[str]]:
+    """
+    Evaluate one candidate model in a spawned subprocess.
+
+    Args:
+        args: (candidate_name, gpu_id, fingerprints, k)
+            candidate_name  - HuggingFace model ID
+            gpu_id          - CUDA device index to load the model on
+            fingerprints    - list of fingerprint prompt strings
+            k               - bottom-k vocab size
+
+    Returns:
+        (candidate_name, cache, error_string)
+        cache is None and error_string is set when loading/inference fails.
+    """
+    candidate_name, gpu_id, fingerprints, k = args
+
+    # Re-import inside subprocess (spawn context has a fresh interpreter).
+    import sys
+    from pathlib import Path as _Path
+    sys.path.insert(0, str(_Path(__file__).parent.parent))
+    from utils import load_hf_model, unload_hf_model, compute_bottomk_vocab_batch
+
+    device = f"cuda:{gpu_id}"
+    try:
+        model, tok, _ = load_hf_model(candidate_name, device_map={"": device})
+        bottomk_lists = compute_bottomk_vocab_batch(
+            model, tok, prompts=fingerprints, k=k, device=device
+        )
+        cache = {fp: ids for fp, ids in zip(fingerprints, bottomk_lists)}
+        unload_hf_model(model, tok)
+        return candidate_name, cache, None
+    except Exception:
+        return candidate_name, None, traceback.format_exc()
 
 
 # ----------------- Timing Utilities -----------------
@@ -313,54 +358,107 @@ def run_experiment(args: argparse.Namespace) -> None:
                     new_model, new_tok, fingerprints, args.bottom_k_vocab, device
                 )
             
+            # new_model_cache is computed; unload new model so all GPUs are
+            # available for parallel candidate evaluation.
+            print(f"\n[3.5] Unloading new model to free GPU memory for candidates...")
+            unload_hf_model(new_model, new_tok)
+            new_model = None
+            new_tok = None
+
             # Test against all candidate models
-            print(f"\n[4] Testing against {n_models} candidate models...")
+            n_parallel = args.num_parallel_candidates
+            print(f"\n[4] Testing against {n_models} candidate models "
+                  f"({n_parallel} in parallel)...")
             candidate_start = time.time()
-            
-            for j, candidate_name in enumerate(models):
-                print(f"\n  [{j+1}/{n_models}] Candidate: {candidate_name}")
-                
-                # Self-comparison: should be 1.0
-                if candidate_name == new_model_name:
-                    overlap_matrix[i, j] = 1.0
-                    print(f"    Self-comparison: overlap = 1.0000")
-                    continue
-                
-                try:
-                    with Timer(f"Test {j+1}/{n_models}"):
-                        candidate_model, candidate_tok, candidate_device = load_hf_model(candidate_name)
-                        
-                        # Compute candidate's bottom-k vocab
-                        candidate_cache = compute_bottomk_cache(
-                            candidate_model, candidate_tok, fingerprints,
-                            args.bottom_k_vocab, candidate_device
-                        )
-                        
-                        # Compute overlap
-                        overlap_score = compute_pairwise_overlap(new_model_cache, candidate_cache)
-                        overlap_matrix[i, j] = overlap_score
-                        
-                        print(f"    Overlap: {overlap_score:.4f}")
-                        
-                        unload_hf_model(candidate_model, candidate_tok)
-                
-                except Exception as e:
-                    print(f"    [ERROR] Failed on {candidate_name}: {e}")
-                    overlap_matrix[i, j] = -1.0  # Mark as error
-            
+
+            # Mark self-comparison
+            self_idx = models.index(new_model_name)
+            overlap_matrix[i, self_idx] = 1.0
+            print(f"\n  [{self_idx+1}/{n_models}] {new_model_name}: "
+                  f"self-comparison = 1.0000")
+
+            # Non-self candidates with their original column indices
+            candidates_to_eval = [
+                (j, name) for j, name in enumerate(models)
+                if name != new_model_name
+            ]
+
+            mp_ctx = mp.get_context("spawn")
+
+            for batch_start in range(0, len(candidates_to_eval), n_parallel):
+                batch = candidates_to_eval[batch_start:batch_start + n_parallel]
+                short = [name.split("/")[-1] for _, name in batch]
+                print(f"\n  Batch [{batch_start+1}-{batch_start+len(batch)}"
+                      f"/{len(candidates_to_eval)}]: {short}")
+
+                # Assign one GPU index per slot in this batch
+                worker_args = [
+                    (name, gpu_id, fingerprints, args.bottom_k_vocab)
+                    for gpu_id, (j, name) in enumerate(batch)
+                ]
+
+                batch_t = time.time()
+
+                if n_parallel == 1:
+                    # Direct call — avoids subprocess spawn overhead for sequential mode
+                    results = [_candidate_worker(worker_args[0])]
+                else:
+                    with ProcessPoolExecutor(
+                        max_workers=len(batch), mp_context=mp_ctx
+                    ) as executor:
+                        future_map = {
+                            executor.submit(_candidate_worker, wa): (j, name)
+                            for wa, (j, name) in zip(worker_args, batch)
+                        }
+                        results = []
+                        for future in as_completed(future_map):
+                            j_fut, name_fut = future_map[future]
+                            try:
+                                ret = future.result()
+                            except Exception:
+                                ret = (name_fut, None, traceback.format_exc())
+                            results.append((j_fut, ret))
+
+                # Record results
+                if n_parallel == 1:
+                    j_col, candidate_name = batch[0]
+                    _, cache, error = results[0]
+                    if error:
+                        print(f"    [ERROR] {candidate_name}:\n{error}")
+                        overlap_matrix[i, j_col] = -1.0
+                    else:
+                        score = compute_pairwise_overlap(new_model_cache, cache)
+                        overlap_matrix[i, j_col] = score
+                        print(f"    [{j_col+1}/{n_models}] {candidate_name}: "
+                              f"overlap = {score:.4f}")
+                else:
+                    for j_col, (ret_name, cache, error) in results:
+                        if error:
+                            print(f"    [ERROR] {ret_name}:\n{error}")
+                            overlap_matrix[i, j_col] = -1.0
+                        else:
+                            score = compute_pairwise_overlap(new_model_cache, cache)
+                            overlap_matrix[i, j_col] = score
+                            print(f"    [{j_col+1}/{n_models}] {ret_name}: "
+                                  f"overlap = {score:.4f}")
+
+                print(f"  Batch done in {format_time(time.time() - batch_t)}")
+
             candidate_time = time.time() - candidate_start
             print(f"\n  Candidates tested in {format_time(candidate_time)}")
-            
+
             # Save this row to CSV immediately
             print(f"\n  Saving row {i+1}/{n_models} to CSV...")
             update_matrix_row(overlap_matrix, i, models, matrix_csv_path)
-            
+
             # Also save numpy array as backup
             np.save(matrix_npy_path, overlap_matrix)
             print(f"  Progress saved!")
-            
+
         finally:
-            unload_hf_model(new_model, new_tok)
+            # new_model may have been unloaded early in step 3.5
+            if new_model is not None:
+                unload_hf_model(new_model, new_tok)
         
         model_time = time.time() - model_start
         print(f"\n{'='*80}")
@@ -478,6 +576,16 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=2000,
         help="Size of bottom-k vocabulary for overlap computation"
+    )
+    parser.add_argument(
+        "--num_parallel_candidates",
+        type=int,
+        default=1,
+        help=(
+            "Number of candidate models to evaluate in parallel, one per GPU. "
+            "Set to the number of available GPUs (e.g. 4) for maximum throughput. "
+            "Default 1 = sequential mode (original behavior)."
+        ),
     )
     return parser.parse_args()
 

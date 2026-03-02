@@ -1,0 +1,30 @@
+model,top1_models,top1_count,top1_overlap,top2_models,top2_count,top2_overlap,base_model,base_model_overlap,same_as_top
+Qwen/Qwen2.5-1.5B,Gensyn/Qwen2.5-1.5B-Instruct | Qwen/Qwen2.5-1.5B-Instruct,2,0.6096,Qwen/Qwen2.5-Coder-1.5B,1,0.2565,,,
+Qwen/Qwen2.5-7B,Qwen/Qwen2.5-7B-Instruct-1M,1,0.4587,nvidia/OpenReasoning-Nemotron-7B,1,0.1872,,,
+Qwen/Qwen3-0.6B-Base,unsloth/Qwen3-0.6B-Base,1,1,Qwen/Qwen3-0.6B,1,0.247,,,
+meta-llama/Llama-3.1-8B,allenai/Llama-3.1-Tulu-3-8B-SFT,1,0.6489,NousResearch/Hermes-3-Llama-3.1-8B,1,0.3929,,,
+meta-llama/Llama-3.1-8B-Instruct,context-labs/Meta-Llama-3.1-8B-Instruct-FP16 | unsloth/Llama-3.1-8B-Instruct | unsloth/Meta-Llama-3.1-8B-Instruct,3,1,Team-ACE/ToolACE-8B,1,0.7515,meta-llama/Llama-3.1-8B,0.102,0
+meta-llama/Llama-3.2-3B-Instruct,unsloth/Llama-3.2-3B-Instruct,1,1,acon96/Home-Llama-3.2-3B,1,0.7702,,,
+Gensyn/Qwen2.5-1.5B-Instruct,Qwen/Qwen2.5-1.5B-Instruct,1,1,Qwen/Qwen2.5-1.5B,1,0.6217,Qwen/Qwen2.5-1.5B,0.6217,2
+Menlo/ReZero-v0.1-llama-3.2-3b-it-grpo-250404,meta-llama/Llama-3.2-3B-Instruct | unsloth/Llama-3.2-3B-Instruct,2,0.8091,inference-net/Schematron-3B,1,0.7323,meta-llama/Llama-3.2-3B-Instruct,0.8091,1
+NousResearch/Hermes-3-Llama-3.1-8B,meta-llama/Llama-3.1-8B,1,0.3736,allenai/Llama-3.1-Tulu-3-8B-SFT,1,0.3707,meta-llama/Llama-3.1-8B,0.3736,1
+Qwen/Qwen2.5-1.5B-Instruct,Gensyn/Qwen2.5-1.5B-Instruct,1,1,Qwen/Qwen2.5-1.5B,1,0.6125,Qwen/Qwen2.5-1.5B,0.6125,2
+Qwen/Qwen2.5-7B-Instruct-1M,Qwen/Qwen2.5-7B,1,0.3477,nvidia/OpenReasoning-Nemotron-7B,1,0.0733,Qwen/Qwen2.5-7B,0.3477,1
+Qwen/Qwen2.5-Coder-1.5B,Qwen/Qwen2.5-1.5B,1,0.2022,Qwen/Qwen2.5-7B,1,0.1272,Qwen/Qwen2.5-1.5B,0.2022,1
+Qwen/Qwen2.5-Math-1.5B,Qwen/Qwen2.5-Math-7B,1,0.0768,nvidia/OpenReasoning-Nemotron-1.5B,1,0.0289,Qwen/Qwen2.5-1.5B,0.0055,0
+Qwen/Qwen2.5-Math-7B,Qwen/Qwen2.5-Math-1.5B,1,0.0631,Qwen/Qwen3-Embedding-0.6B,1,0.0341,Qwen/Qwen2.5-7B,0.0193,0
+Qwen/Qwen3-0.6B,Qwen/Qwen3-0.6B-Base | unsloth/Qwen3-0.6B-Base,2,0.2074,Gensyn/Qwen2.5-1.5B-Instruct | Qwen/Qwen2.5-1.5B-Instruct,2,0.0675,Qwen/Qwen3-0.6B-Base,0.2074,1
+Qwen/Qwen3-Embedding-0.6B,Qwen/Qwen3-0.6B-Base | unsloth/Qwen3-0.6B-Base,2,0.045,Qwen/Qwen3-0.6B,1,0.0399,Qwen/Qwen3-0.6B-Base,0.045,1
+Skywork/Skywork-Reward-Llama-3.1-8B-v0.2,inference-net/Schematron-3B,1,0.0169,acon96/Home-Llama-3.2-3B,1,0.0162,meta-llama/Llama-3.1-8B-Instruct,0.0134,0
+Team-ACE/ToolACE-8B,meta-llama/Llama-3.1-8B-Instruct | context-labs/Meta-Llama-3.1-8B-Instruct-FP16 | unsloth/Llama-3.1-8B-Instruct | unsloth/Meta-Llama-3.1-8B-Instruct,4,0.7886,meta-llama/Llama-3.1-8B,1,0.2214,meta-llama/Llama-3.1-8B-Instruct,0.7886,1
+acon96/Home-Llama-3.2-3B,meta-llama/Llama-3.2-3B-Instruct | unsloth/Llama-3.2-3B-Instruct,2,0.7422,inference-net/Schematron-3B,1,0.6964,meta-llama/Llama-3.2-3B-Instruct,0.7422,1
+allenai/Llama-3.1-Tulu-3-8B-SFT,meta-llama/Llama-3.1-8B,1,0.6292,NousResearch/Hermes-3-Llama-3.1-8B,1,0.222,meta-llama/Llama-3.1-8B,0.6292,1
+context-labs/Meta-Llama-3.1-8B-Instruct-FP16,meta-llama/Llama-3.1-8B-Instruct | unsloth/Llama-3.1-8B-Instruct | unsloth/Meta-Llama-3.1-8B-Instruct,3,1,Team-ACE/ToolACE-8B,1,0.8079,meta-llama/Llama-3.1-8B,0.168,0
+inference-net/Schematron-3B,meta-llama/Llama-3.2-3B-Instruct | unsloth/Llama-3.2-3B-Instruct,2,0.8226,Menlo/ReZero-v0.1-llama-3.2-3b-it-grpo-250404,1,0.7403,meta-llama/Llama-3.2-3B-Instruct,0.8226,1
+meta-llama/Llama-Guard-3-8B,NousResearch/Hermes-3-Llama-3.1-8B,1,0.1927,meta-llama/Llama-3.1-8B,1,0.1048,meta-llama/Llama-3.1-8B,0.1048,2
+nvidia/OpenReasoning-Nemotron-1.5B,Qwen/Qwen2.5-1.5B,1,0.204,Qwen/Qwen2.5-7B,1,0.109,Qwen/Qwen2.5-1.5B,0.204,1
+nvidia/OpenReasoning-Nemotron-7B,Qwen/Qwen2.5-7B,1,0.0959,nvidia/OpenReasoning-Nemotron-1.5B,1,0.0597,Qwen/Qwen2.5-7B,0.0959,1
+unsloth/Llama-3.1-8B-Instruct,meta-llama/Llama-3.1-8B-Instruct | context-labs/Meta-Llama-3.1-8B-Instruct-FP16 | unsloth/Meta-Llama-3.1-8B-Instruct,3,1,Team-ACE/ToolACE-8B,1,0.787,meta-llama/Llama-3.1-8B-Instruct,1,1
+unsloth/Llama-3.2-3B-Instruct,meta-llama/Llama-3.2-3B-Instruct,1,1,inference-net/Schematron-3B,1,0.76,meta-llama/Llama-3.2-3B-Instruct,1,1
+unsloth/Meta-Llama-3.1-8B-Instruct,meta-llama/Llama-3.1-8B-Instruct | context-labs/Meta-Llama-3.1-8B-Instruct-FP16 | unsloth/Llama-3.1-8B-Instruct,3,1,Team-ACE/ToolACE-8B,1,0.7824,meta-llama/Llama-3.1-8B-Instruct,1,1
+unsloth/Qwen3-0.6B-Base,Qwen/Qwen3-0.6B-Base,1,1,Qwen/Qwen3-0.6B,1,0.2382,Qwen/Qwen3-0.6B-Base,1,1
