@@ -68,7 +68,10 @@ def unload_hf_model(model=None, tokenizer=None):
     try:
         if model is not None:
             try:
-                model.to('cpu')
+                # Skip .to('cpu') for models dispatched with accelerate hooks
+                # (device_map="auto"), as this triggers a warning and is a no-op.
+                if not getattr(model, 'hf_device_map', None):
+                    model.to('cpu')
             except Exception:
                 pass
             del model

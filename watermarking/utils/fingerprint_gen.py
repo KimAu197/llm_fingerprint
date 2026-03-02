@@ -22,8 +22,15 @@ def _ts_path(path: str, model_name) -> str:
     return f"{base}_{model_name}{ext or '.json'}"
 
 
-def _build_allowed_token_set(tokenizer) -> List[int]:
-    """Build list of allowed token IDs (excluding special tokens)."""
+def _build_allowed_token_set(tokenizer, model_vocab_size: int = None) -> List[int]:
+    """Build list of allowed token IDs (excluding special tokens).
+    
+    Args:
+        tokenizer: HuggingFace tokenizer
+        model_vocab_size: actual model logit output size; used to clip indices
+            when tokenizer.vocab_size > model output dimension (e.g. some
+            pretrain-release checkpoints). If None, uses tokenizer.vocab_size.
+    """
     disallow = set()
     for attr in ["bos_token_id", "eos_token_id", "pad_token_id", "unk_token_id"]:
         tid = getattr(tokenizer, attr, None)
@@ -32,12 +39,17 @@ def _build_allowed_token_set(tokenizer) -> List[int]:
     if hasattr(tokenizer, "all_special_ids"):
         disallow.update(tokenizer.all_special_ids)
     
-    allowed = [tid for tid in range(tokenizer.vocab_size) if tid not in disallow]
+    upper = tokenizer.vocab_size
+    if model_vocab_size is not None and model_vocab_size < upper:
+        upper = model_vocab_size
+    
+    allowed = [tid for tid in range(upper) if tid not in disallow]
     
     # Safety check: ensure we have at least some allowed tokens
     if len(allowed) == 0:
         raise ValueError(
             f"No allowed tokens found! vocab_size={tokenizer.vocab_size}, "
+            f"model_vocab_size={model_vocab_size}, "
             f"disallowed={len(disallow)} tokens. This model may not be suitable for fingerprinting."
         )
     
@@ -73,7 +85,8 @@ def sample_fingerprint_prompt(
     if device is None:
         device = next(model.parameters()).device
 
-    allowed = _build_allowed_token_set(tokenizer)
+    model_vocab_size = getattr(getattr(model, 'config', None), 'vocab_size', None)
+    allowed = _build_allowed_token_set(tokenizer, model_vocab_size=model_vocab_size)
     allowed_t = torch.tensor(allowed, device=device)
 
     # (1) Uniformly random prefix
