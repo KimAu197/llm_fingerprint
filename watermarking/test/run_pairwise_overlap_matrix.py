@@ -260,6 +260,50 @@ def compute_pairwise_overlap(
     return sum(scores) / len(scores) if scores else 0.0
 
 
+# ----------------- Progress Tracking -----------------
+
+
+def print_progress_summary(
+    current_idx: int,
+    total_models: int,
+    model_times: List[float],
+    experiment_start: float,
+) -> None:
+    """Print detailed progress summary with ETA."""
+    if not model_times:
+        return
+    
+    avg_time_per_model = sum(model_times) / len(model_times)
+    remaining_models = total_models - (current_idx + 1)
+    eta_seconds = avg_time_per_model * remaining_models
+    total_elapsed = time.time() - experiment_start
+    projected_total = avg_time_per_model * total_models
+    completion_percentage = (current_idx + 1) / total_models * 100
+    
+    print(f"\n{'='*80}")
+    print(f"PROGRESS SUMMARY [{current_idx + 1}/{total_models}]")
+    print(f"{'='*80}")
+    print(f"Completion: {completion_percentage:.1f}% "
+          f"({'█' * int(completion_percentage // 5)}{' ' * (20 - int(completion_percentage // 5))})")
+    print(f"")
+    print(f"Timing Statistics:")
+    print(f"  Last model:       {format_time(model_times[-1])}")
+    print(f"  Average/model:    {format_time(avg_time_per_model)}")
+    print(f"  Fastest model:    {format_time(min(model_times))}")
+    print(f"  Slowest model:    {format_time(max(model_times))}")
+    print(f"")
+    print(f"Time Estimates:")
+    print(f"  Elapsed:          {format_time(total_elapsed)}")
+    print(f"  Remaining (ETA):  {format_time(eta_seconds)}")
+    print(f"  Projected total:  {format_time(projected_total)}")
+    
+    # Calculate expected finish time
+    from datetime import datetime, timedelta
+    finish_time = datetime.now() + timedelta(seconds=eta_seconds)
+    print(f"  Expected finish:  {finish_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"{'='*80}")
+
+
 # ----------------- Main Experiment -----------------
 
 
@@ -269,6 +313,47 @@ def run_experiment(args: argparse.Namespace) -> None:
     
     experiment_start = time.time()
     
+    # Parse GPU IDs
+    if args.gpu_ids:
+        gpu_ids = [int(gid.strip()) for gid in args.gpu_ids.split(',')]
+    else:
+        gpu_ids = list(range(args.num_parallel_candidates))
+    
+    # Validate GPU configuration and warn about potential OOM
+    if args.num_parallel_candidates > len(gpu_ids):
+        models_per_gpu = args.num_parallel_candidates / len(gpu_ids)
+        if models_per_gpu > 1:
+            print(f"[WARNING] You are loading {models_per_gpu:.1f} models per GPU on average.")
+            print(f"[WARNING] This may cause OUT-OF-MEMORY errors!")
+            print(f"[WARNING] Recommendation: Set --num_parallel_candidates={len(gpu_ids)} "
+                  f"(1 model per GPU)")
+    
+    # Display GPU usage pattern
+    print("=" * 80)
+    print("GPU ALLOCATION PREVIEW")
+    print("=" * 80)
+    print(f"Available GPUs: {gpu_ids}")
+    print(f"Parallel candidates: {args.num_parallel_candidates}")
+    if args.num_parallel_candidates <= len(gpu_ids):
+        print(f"Mode: Each model gets its own GPU (SAFE)")
+        for i in range(min(args.num_parallel_candidates, 4)):
+            print(f"  Slot {i+1} -> GPU {gpu_ids[i % len(gpu_ids)]}")
+        if args.num_parallel_candidates > 4:
+            print(f"  ... (total {args.num_parallel_candidates} slots)")
+    else:
+        print(f"Mode: Multiple models per GPU (MAY CAUSE OOM!)")
+        for i in range(min(args.num_parallel_candidates, 8)):
+            print(f"  Slot {i+1} -> GPU {gpu_ids[i % len(gpu_ids)]}")
+        if args.num_parallel_candidates > 8:
+            print(f"  ... (total {args.num_parallel_candidates} slots)")
+    print()
+    
+    # Validate GPU configuration
+    if args.num_parallel_candidates > len(gpu_ids):
+        print(f"[INFO] {args.num_parallel_candidates} parallel workers will share {len(gpu_ids)} GPU(s)")
+        print(f"[INFO] Continuing... (use Ctrl+C to abort if concerned about OOM)")
+        print()
+    
     # Log configuration
     print("=" * 80)
     print("PAIRWISE OVERLAP MATRIX EXPERIMENT")
@@ -277,6 +362,8 @@ def run_experiment(args: argparse.Namespace) -> None:
     print(f"Num fingerprints per model: {args.num_fingerprints}")
     print(f"Bottom-k vocab size: {args.bottom_k_vocab}")
     print(f"Random seed: {args.seed}")
+    print(f"Parallel candidates: {args.num_parallel_candidates}")
+    print(f"GPU IDs: {gpu_ids}")
     print()
     
     # Load model list
@@ -292,6 +379,9 @@ def run_experiment(args: argparse.Namespace) -> None:
     
     # Initialize results matrix
     overlap_matrix = np.zeros((n_models, n_models))
+    
+    # Time tracking for ETA calculation
+    model_times = []  # Track time per model for ETA
     
     # Create output directory
     output_dir = Path(args.output_dir)
@@ -368,7 +458,7 @@ def run_experiment(args: argparse.Namespace) -> None:
             # Test against all candidate models
             n_parallel = args.num_parallel_candidates
             print(f"\n[4] Testing against {n_models} candidate models "
-                  f"({n_parallel} in parallel)...")
+                  f"({n_parallel} in parallel on GPUs {gpu_ids[:n_parallel]})...")
             candidate_start = time.time()
 
             # Mark self-comparison
@@ -391,10 +481,10 @@ def run_experiment(args: argparse.Namespace) -> None:
                 print(f"\n  Batch [{batch_start+1}-{batch_start+len(batch)}"
                       f"/{len(candidates_to_eval)}]: {short}")
 
-                # Assign one GPU index per slot in this batch
+                # Assign GPU IDs cyclically from the available gpu_ids list
                 worker_args = [
-                    (name, gpu_id, fingerprints, args.bottom_k_vocab)
-                    for gpu_id, (j, name) in enumerate(batch)
+                    (name, gpu_ids[idx % len(gpu_ids)], fingerprints, args.bottom_k_vocab)
+                    for idx, (j, name) in enumerate(batch)
                 ]
 
                 batch_t = time.time()
@@ -445,15 +535,19 @@ def run_experiment(args: argparse.Namespace) -> None:
                 print(f"  Batch done in {format_time(time.time() - batch_t)}")
 
             candidate_time = time.time() - candidate_start
-            print(f"\n  Candidates tested in {format_time(candidate_time)}")
+            candidates_per_sec = len(candidates_to_eval) / candidate_time if candidate_time > 0 else 0
+            print(f"\n  Candidates tested in {format_time(candidate_time)} "
+                  f"({candidates_per_sec:.2f} candidates/sec)")
 
             # Save this row to CSV immediately
-            print(f"\n  Saving row {i+1}/{n_models} to CSV...")
+            print(f"\n  [AUTOSAVE] Saving row {i+1}/{n_models} to CSV...")
             update_matrix_row(overlap_matrix, i, models, matrix_csv_path)
 
             # Also save numpy array as backup
             np.save(matrix_npy_path, overlap_matrix)
-            print(f"  Progress saved!")
+            print(f"  [AUTOSAVE] Progress saved to:")
+            print(f"    - {matrix_csv_path}")
+            print(f"    - {matrix_npy_path}")
 
         finally:
             # new_model may have been unloaded early in step 3.5
@@ -461,9 +555,14 @@ def run_experiment(args: argparse.Namespace) -> None:
                 unload_hf_model(new_model, new_tok)
         
         model_time = time.time() - model_start
+        model_times.append(model_time)
+        
         print(f"\n{'='*80}")
         print(f"NEW MODEL [{i+1}/{n_models}] COMPLETED in {format_time(model_time)}")
         print(f"{'='*80}")
+        
+        # Print detailed progress summary
+        print_progress_summary(i, n_models, model_times, experiment_start)
     
     # Save results
     print("\n" + "=" * 80)
@@ -582,9 +681,25 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=1,
         help=(
-            "Number of candidate models to evaluate in parallel, one per GPU. "
-            "Set to the number of available GPUs (e.g. 4) for maximum throughput. "
-            "Default 1 = sequential mode (original behavior)."
+            "Number of candidate models to evaluate in parallel. "
+            "WARNING: If using single GPU (e.g., --gpu_ids=2), setting this > 1 will "
+            "load multiple models on the SAME GPU simultaneously, which may cause OOM. "
+            "Recommended: Set to 1 for single GPU, or to number of GPUs for multi-GPU. "
+            "Default 1 = sequential mode (safe)."
+        ),
+    )
+    parser.add_argument(
+        "--gpu_ids",
+        type=str,
+        default=None,
+        help=(
+            "Comma-separated GPU IDs to use (e.g., '0' or '0,1,2,3'). "
+            "If not specified, uses cuda:0, cuda:1, ... based on num_parallel_candidates. "
+            "GPU assignment: Models are distributed round-robin across specified GPUs. "
+            "Examples: "
+            "  --gpu_ids=2 --num_parallel_candidates=1  (single GPU, sequential - SAFE) "
+            "  --gpu_ids=2 --num_parallel_candidates=2  (single GPU, 2 models at once - MAY OOM) "
+            "  --gpu_ids=0,1,2,3 --num_parallel_candidates=4  (4 GPUs, 1 model per GPU - SAFE)"
         ),
     )
     return parser.parse_args()
