@@ -12,8 +12,8 @@ Qwen/Qwen2.5-1.5B
 Menlo/ReZero-v0.1-llama-3.2-3b-it-grpo-250404
 NousResearch/Hermes-3-Llama-3.1-8B
 mistralai/Mistral-7B-Instruct-v0.2
-google/gemma-2-9b-it
-Qwen/Qwen2.5-Coder-7B-Instruct
+tiiuae/Falcon3-1B-Instruct
+Qwen/Qwen2.5-Coder-0.5B
 Qwen/Qwen2.5-1.5B-Instruct
 Open-Bee/Bee-8B-RL
 google/gemma-2-9b
@@ -24,7 +24,7 @@ Qwen/Qwen2.5-Coder-7B
 mistralai/Mistral-7B-v0.1
 Qwen/Qwen2.5-0.5B-Instruct
 Qwen/Qwen2.5-3B
-Team-ACE/ToolACE-8B
+arcee-ai/WitchLM-1.5B
 SakanaAI/TinySwallow-1.5B
 mistralai/Mistral-Nemo-Instruct-FP8-2407
 acon96/Home-Llama-3.2-3B
@@ -44,7 +44,7 @@ MLP-KTLim/llama-3-Korean-Bllossom-8B
 Qwen/Qwen2.5-Math-1.5B-Instruct
 Qwen/Qwen2-0.5B-Instruct
 Qwen/Qwen2.5-Coder-0.5B-Instruct
-rinna/japanese-gpt-neox-3.6b-instruction-sft
+google/gemma-2-2b-jpn-it
 Gensyn/Qwen2.5-1.5B-Instruct
 arcee-ai/Caller
 arcee-ai/Llama-3.1-SuperNova-Lite
@@ -78,7 +78,7 @@ microsoft/Phi-3.5-mini-instruct
 microsoft/UserLM-8b
 NousResearch/Hermes-3-Llama-3.2-3B
 Qwen/Qwen2.5-Coder-1.5B
-Qwen/Qwen2.5-Math-7B
+nvidia/OpenMath-Nemotron-1.5B
 numind/NuExtract-1.5
 nvidia/Llama-3.1-8B-Instruct-FP8
 google/gemma-2-2b
@@ -98,4 +98,4 @@ unsloth/Meta-Llama-3.1-8B-Instruct
 unsloth/Phi-3.5-mini-instruct
 Qwen/Qwen2.5-Math-1.5B
 arcee-ai/Virtuoso-Lite-PreDistill
-nvidia/OpenReasoning-Nemotron-7B
+nvidia/OpenReasoning-Nemotron-1.5B
