@@ -140,18 +140,42 @@ def phase1_generate_fingerprints(
         except Exception as e:
             print(f"  [ERROR] {e}")
             errors[name] = traceback.format_exc()
+            
+            # If OOM, try to reset CUDA context for next model
+            if "out of memory" in str(e).lower() or "cuda" in str(e).lower():
+                print("  [INFO] Attempting to recover CUDA context...")
+                try:
+                    import gc
+                    import torch
+                    gc.collect()
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                        torch.cuda.ipc_collect()
+                        # Give GPU time to recover
+                        import time
+                        time.sleep(2)
+                except Exception:
+                    pass
         
         finally:
             # Always unload, even if error occurred
-            if model is not None or tok is not None:
-                unload_hf_model(model, tok)
-            # Extra cleanup after unload
-            import gc
-            import torch
-            gc.collect()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-                torch.cuda.synchronize()
+            # Wrap all cleanup in try-except to handle corrupted CUDA context
+            try:
+                if model is not None or tok is not None:
+                    unload_hf_model(model, tok)
+            except Exception as cleanup_err:
+                print(f"  [WARNING] Cleanup failed: {cleanup_err}")
+            
+            # Extra cleanup after unload - also wrapped
+            try:
+                import gc
+                import torch
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
+            except Exception:
+                pass  # Ignore cleanup errors (e.g., corrupted CUDA context)
 
         elapsed = time.time() - mt
         times.append(elapsed)
@@ -260,18 +284,42 @@ def phase2_compute_caches(
         except Exception as e:
             print(f"  [ERROR] {e}")
             traceback.print_exc()
+            
+            # If OOM, try to reset CUDA context for next model
+            if "out of memory" in str(e).lower() or "cuda" in str(e).lower():
+                print("  [INFO] Attempting to recover CUDA context...")
+                try:
+                    import gc
+                    import torch
+                    gc.collect()
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                        torch.cuda.ipc_collect()
+                        # Give GPU time to recover
+                        import time
+                        time.sleep(2)
+                except Exception:
+                    pass
         
         finally:
             # Always unload, even if error occurred
-            if model is not None or tok is not None:
-                unload_hf_model(model, tok)
-            # Extra cleanup after unload
-            import gc
-            import torch
-            gc.collect()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-                torch.cuda.synchronize()
+            # Wrap all cleanup in try-except to handle corrupted CUDA context
+            try:
+                if model is not None or tok is not None:
+                    unload_hf_model(model, tok)
+            except Exception as cleanup_err:
+                print(f"  [WARNING] Cleanup failed: {cleanup_err}")
+            
+            # Extra cleanup after unload - also wrapped
+            try:
+                import gc
+                import torch
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
+            except Exception:
+                pass  # Ignore cleanup errors (e.g., corrupted CUDA context)
 
         elapsed = time.time() - mt
         times.append(elapsed)

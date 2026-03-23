@@ -65,6 +65,7 @@ def unload_hf_model(model=None, tokenizer=None):
     Release HF model and GPU/CPU memory.
     Compatible with device_map('auto') / single GPU.
     Properly releases CUDA memory to prevent accelerator errors.
+    Handles corrupted CUDA context gracefully.
     """
     try:
         if model is not None:
@@ -93,11 +94,12 @@ def unload_hf_model(model=None, tokenizer=None):
             del model
             
             # Force synchronization if CUDA device was used
+            # Wrap in try-except to handle corrupted CUDA context
             if device is not None and device.type == 'cuda':
                 try:
                     torch.cuda.synchronize(device)
                 except Exception:
-                    pass
+                    pass  # CUDA context may be corrupted, ignore
     except Exception:
         pass
     
@@ -107,9 +109,12 @@ def unload_hf_model(model=None, tokenizer=None):
     except Exception:
         pass
 
-    # Multiple rounds of cleanup
-    gc.collect()
-    gc.collect()
+    # Multiple rounds of cleanup - all wrapped
+    try:
+        gc.collect()
+        gc.collect()
+    except Exception:
+        pass
 
     if torch.cuda.is_available():
         try:
@@ -120,7 +125,7 @@ def unload_hf_model(model=None, tokenizer=None):
             # Second round of cache clearing
             torch.cuda.empty_cache()
         except Exception:
-            pass
+            pass  # Ignore if CUDA context is corrupted
 
 
 def unload_llama_cpp(llm=None):
