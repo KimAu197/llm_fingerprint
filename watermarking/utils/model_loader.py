@@ -64,31 +64,61 @@ def unload_hf_model(model=None, tokenizer=None):
     """
     Release HF model and GPU/CPU memory.
     Compatible with device_map('auto') / single GPU.
+    Properly releases CUDA memory to prevent accelerator errors.
     """
     try:
         if model is not None:
+            # Get device before deletion for proper cleanup
+            device = None
             try:
-                # Skip .to('cpu') for models dispatched with accelerate hooks
-                # (device_map="auto"), as this triggers a warning and is a no-op.
-                if not getattr(model, 'hf_device_map', None):
+                device = next(model.parameters()).device
+            except (StopIteration, AttributeError):
+                pass
+            
+            # Move model to CPU first (works better than direct deletion)
+            try:
+                if hasattr(model, 'hf_device_map') and model.hf_device_map:
+                    # For accelerate-dispatched models, use proper cleanup
+                    from accelerate import infer_auto_device_map
+                    from accelerate.utils import get_balanced_memory
+                    # Let accelerate handle cleanup
+                    pass
+                else:
+                    # For simple device_map, move to CPU
                     model.to('cpu')
             except Exception:
                 pass
+            
+            # Delete model
             del model
+            
+            # Force synchronization if CUDA device was used
+            if device is not None and device.type == 'cuda':
+                try:
+                    torch.cuda.synchronize(device)
+                except Exception:
+                    pass
     except Exception:
         pass
+    
     try:
         if tokenizer is not None:
             del tokenizer
     except Exception:
         pass
 
+    # Multiple rounds of cleanup
+    gc.collect()
     gc.collect()
 
     if torch.cuda.is_available():
         try:
+            # Empty cache on all devices
             torch.cuda.empty_cache()
+            torch.cuda.synchronize()
             torch.cuda.ipc_collect()
+            # Second round of cache clearing
+            torch.cuda.empty_cache()
         except Exception:
             pass
 

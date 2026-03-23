@@ -1,0 +1,782 @@
+{
+  "lightonai/answerai-colbert-small-v1": {
+    "base_models": [
+      "answerdotai/answerai-colbert-small-v1"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.0,
+    "selected_candidates": [
+      {
+        "candidate_model": "cross-encoder/ms-marco-MiniLM-L12-v2",
+        "score": [
+          1.0106382978723405,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "answerdotai/answerai-colbert-small-v1",
+        "score": [
+          1.0106382978723405,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "microsoft/MiniLM-L12-H384-uncased",
+        "score": [
+          1.0106382978723405,
+          0.0
+        ]
+      }
+    ],
+    "found_true_base_model": true,
+    "found_true_base_models": [
+      "answerdotai/answerai-colbert-small-v1"
+    ],
+    "true_base_model_scores": {
+      "answerdotai/answerai-colbert-small-v1": [
+        1.0106382978723405,
+        0.0
+      ]
+    }
+  },
+  "namdp-ptit/ViRanker": {
+    "base_models": [
+      "BAAI/bge-m3"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.0,
+    "selected_candidates": [
+      {
+        "candidate_model": "nlpai-lab/KURE-v1",
+        "score": [
+          1.0054347826086956,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "BAAI/bge-m3",
+        "score": [
+          1.0054347826086956,
+          0.0
+        ]
+      }
+    ],
+    "found_true_base_model": true,
+    "found_true_base_models": [
+      "BAAI/bge-m3"
+    ],
+    "true_base_model_scores": {
+      "BAAI/bge-m3": [
+        1.0054347826086956,
+        0.0
+      ]
+    }
+  },
+  "nlpai-lab/KURE-v1": {
+    "base_models": [
+      "BAAI/bge-m3"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.0,
+    "selected_candidates": [
+      {
+        "candidate_model": "namdp-ptit/ViRanker",
+        "score": [
+          1.0054347826086956,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "BAAI/bge-m3",
+        "score": [
+          1.002717391304348,
+          0.0
+        ]
+      }
+    ],
+    "found_true_base_model": true,
+    "found_true_base_models": [
+      "BAAI/bge-m3"
+    ],
+    "true_base_model_scores": {
+      "BAAI/bge-m3": [
+        1.002717391304348,
+        0.0
+      ]
+    }
+  },
+  "tabularisai/multilingual-sentiment-analysis": {
+    "base_models": [
+      "distilbert/distilbert-base-multilingual-cased"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.0,
+    "selected_candidates": [
+      {
+        "candidate_model": "distilbert/distilbert-base-multilingual-cased",
+        "score": [
+          1.0227272727272727,
+          0.0
+        ]
+      }
+    ],
+    "found_true_base_model": true,
+    "found_true_base_models": [
+      "distilbert/distilbert-base-multilingual-cased"
+    ],
+    "true_base_model_scores": {
+      "distilbert/distilbert-base-multilingual-cased": [
+        1.0227272727272727,
+        0.0
+      ]
+    }
+  },
+  "w11wo/indonesian-roberta-base-posp-tagger": {
+    "base_models": [
+      "flax-community/indonesian-roberta-base"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.0,
+    "selected_candidates": [
+      {
+        "candidate_model": "vibhorag101/roberta-base-suicide-prediction-phr",
+        "score": [
+          1.0106382978723405,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "cross-encoder/stsb-roberta-base",
+        "score": [
+          1.0106382978723405,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "flax-community/indonesian-roberta-base",
+        "score": [
+          1.0106382978723405,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "FacebookAI/roberta-base",
+        "score": [
+          1.0106382978723405,
+          0.0
+        ]
+      }
+    ],
+    "found_true_base_model": true,
+    "found_true_base_models": [
+      "flax-community/indonesian-roberta-base"
+    ],
+    "true_base_model_scores": {
+      "flax-community/indonesian-roberta-base": [
+        1.0106382978723405,
+        0.0
+      ]
+    }
+  },
+  "Alibaba-NLP/gte-modernbert-base": {
+    "base_models": [
+      "answerdotai/ModernBERT-base"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.0,
+    "selected_candidates": [
+      {
+        "candidate_model": "nomic-ai/modernbert-embed-base",
+        "score": [
+          0.9818780889621087,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "deepvk/USER2-base",
+        "score": [
+          0.9818780889621087,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "answerdotai/ModernBERT-base",
+        "score": [
+          0.9818780889621087,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "deepvk/RuModernBERT-base",
+        "score": [
+          0.9818780889621087,
+          0.0
+        ]
+      }
+    ],
+    "found_true_base_model": true,
+    "found_true_base_models": [
+      "answerdotai/ModernBERT-base"
+    ],
+    "true_base_model_scores": {
+      "answerdotai/ModernBERT-base": [
+        0.9818780889621087,
+        0.0
+      ]
+    }
+  },
+  "cybersectony/phishing-email-detection-distilbert_v2.4.1": {
+    "base_models": [
+      "distilbert/distilbert-base-uncased"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.0,
+    "selected_candidates": [
+      {
+        "candidate_model": "distilbert/distilbert-base-uncased",
+        "score": [
+          1.0227272727272727,
+          0.0
+        ]
+      }
+    ],
+    "found_true_base_model": true,
+    "found_true_base_models": [
+      "distilbert/distilbert-base-uncased"
+    ],
+    "true_base_model_scores": {
+      "distilbert/distilbert-base-uncased": [
+        1.0227272727272727,
+        0.0
+      ]
+    }
+  },
+  "nomic-ai/modernbert-embed-base": {
+    "base_models": [
+      "answerdotai/ModernBERT-base"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.0,
+    "selected_candidates": [
+      {
+        "candidate_model": "Alibaba-NLP/gte-modernbert-base",
+        "score": [
+          0.9818780889621087,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "deepvk/USER2-base",
+        "score": [
+          0.9818780889621087,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "answerdotai/ModernBERT-base",
+        "score": [
+          0.9818780889621087,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "deepvk/RuModernBERT-base",
+        "score": [
+          0.9818780889621087,
+          0.0
+        ]
+      }
+    ],
+    "found_true_base_model": true,
+    "found_true_base_models": [
+      "answerdotai/ModernBERT-base"
+    ],
+    "true_base_model_scores": {
+      "answerdotai/ModernBERT-base": [
+        0.9818780889621087,
+        0.0
+      ]
+    }
+  },
+  "deutsche-telekom/gbert-large-paraphrase-cosine": {
+    "base_models": [
+      "deepset/gbert-large"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.0,
+    "selected_candidates": [
+      {
+        "candidate_model": "deepset/gbert-large",
+        "score": [
+          1.002717391304348,
+          0.0
+        ]
+      }
+    ],
+    "found_true_base_model": true,
+    "found_true_base_models": [
+      "deepset/gbert-large"
+    ],
+    "true_base_model_scores": {
+      "deepset/gbert-large": [
+        1.002717391304348,
+        0.0
+      ]
+    }
+  },
+  "StephanAkkerman/FinTwitBERT-sentiment": {
+    "base_models": [
+      "StephanAkkerman/FinTwitBERT"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.0,
+    "selected_candidates": [
+      {
+        "candidate_model": "StephanAkkerman/FinTwitBERT",
+        "score": [
+          1.0106382978723405,
+          0.0
+        ]
+      }
+    ],
+    "found_true_base_model": true,
+    "found_true_base_models": [
+      "StephanAkkerman/FinTwitBERT"
+    ],
+    "true_base_model_scores": {
+      "StephanAkkerman/FinTwitBERT": [
+        1.0106382978723405,
+        0.0
+      ]
+    }
+  },
+  "syssec-utd/py312-pylingual-v1-segmenter": {
+    "base_models": [
+      "syssec-utd/py312-pylingual-v1-mlm"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.010638297872340425,
+    "selected_candidates": [
+      {
+        "candidate_model": "w11wo/indonesian-roberta-base-posp-tagger",
+        "score": [
+          1.0159574468085106,
+          0.010638297872340425
+        ]
+      },
+      {
+        "candidate_model": "vibhorag101/roberta-base-suicide-prediction-phr",
+        "score": [
+          1.0159574468085106,
+          0.010638297872340425
+        ]
+      },
+      {
+        "candidate_model": "cross-encoder/stsb-roberta-base",
+        "score": [
+          1.0159574468085106,
+          0.010638297872340425
+        ]
+      },
+      {
+        "candidate_model": "FacebookAI/xlm-roberta-base",
+        "score": [
+          1.0159574468085106,
+          0.010638297872340425
+        ]
+      },
+      {
+        "candidate_model": "flax-community/indonesian-roberta-base",
+        "score": [
+          1.0159574468085106,
+          0.010638297872340425
+        ]
+      },
+      {
+        "candidate_model": "FacebookAI/roberta-base",
+        "score": [
+          1.0159574468085106,
+          0.010638297872340425
+        ]
+      }
+    ],
+    "found_true_base_model": false,
+    "found_true_base_models": [],
+    "true_base_model_scores": {
+      "syssec-utd/py312-pylingual-v1-mlm": "error"
+    }
+  },
+  "cahya/NusaBert-ner-v1.3": {
+    "base_models": [
+      "cahya/NusaBert-v1.3"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.0016474464579901153,
+    "selected_candidates": [
+      {
+        "candidate_model": "Alibaba-NLP/gte-modernbert-base",
+        "score": [
+          0.9827018121911038,
+          0.0016474464579901153
+        ]
+      },
+      {
+        "candidate_model": "nomic-ai/modernbert-embed-base",
+        "score": [
+          0.9827018121911038,
+          0.0016474464579901153
+        ]
+      },
+      {
+        "candidate_model": "deepvk/USER2-base",
+        "score": [
+          0.9827018121911038,
+          0.0016474464579901153
+        ]
+      },
+      {
+        "candidate_model": "answerdotai/ModernBERT-base",
+        "score": [
+          0.9827018121911038,
+          0.0016474464579901153
+        ]
+      },
+      {
+        "candidate_model": "deepvk/RuModernBERT-base",
+        "score": [
+          0.9827018121911038,
+          0.0016474464579901153
+        ]
+      }
+    ],
+    "found_true_base_model": false,
+    "found_true_base_models": [],
+    "true_base_model_scores": {
+      "cahya/NusaBert-v1.3": "error"
+    }
+  },
+  "deepvk/USER2-base": {
+    "base_models": [
+      "deepvk/RuModernBERT-base"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.0,
+    "selected_candidates": [
+      {
+        "candidate_model": "Alibaba-NLP/gte-modernbert-base",
+        "score": [
+          0.9818780889621087,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "nomic-ai/modernbert-embed-base",
+        "score": [
+          0.9818780889621087,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "answerdotai/ModernBERT-base",
+        "score": [
+          0.9818780889621087,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "deepvk/RuModernBERT-base",
+        "score": [
+          0.9818780889621087,
+          0.0
+        ]
+      }
+    ],
+    "found_true_base_model": true,
+    "found_true_base_models": [
+      "deepvk/RuModernBERT-base"
+    ],
+    "true_base_model_scores": {
+      "deepvk/RuModernBERT-base": [
+        0.9818780889621087,
+        0.0
+      ]
+    }
+  },
+  "mirth/chonky_modernbert_large_1": {
+    "base_models": [
+      "answerdotai/ModernBERT-large"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.0,
+    "selected_candidates": [
+      {
+        "candidate_model": "answerdotai/ModernBERT-large",
+        "score": [
+          0.9851063829787234,
+          0.0
+        ]
+      }
+    ],
+    "found_true_base_model": true,
+    "found_true_base_models": [
+      "answerdotai/ModernBERT-large"
+    ],
+    "true_base_model_scores": {
+      "answerdotai/ModernBERT-large": [
+        0.9851063829787234,
+        0.0
+      ]
+    }
+  },
+  "vibhorag101/roberta-base-suicide-prediction-phr": {
+    "base_models": [
+      "FacebookAI/roberta-base"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.0,
+    "selected_candidates": [
+      {
+        "candidate_model": "w11wo/indonesian-roberta-base-posp-tagger",
+        "score": [
+          1.0106382978723405,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "cross-encoder/stsb-roberta-base",
+        "score": [
+          1.0106382978723405,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "flax-community/indonesian-roberta-base",
+        "score": [
+          1.0106382978723405,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "FacebookAI/roberta-base",
+        "score": [
+          1.0106382978723405,
+          0.0
+        ]
+      }
+    ],
+    "found_true_base_model": true,
+    "found_true_base_models": [
+      "FacebookAI/roberta-base"
+    ],
+    "true_base_model_scores": {
+      "FacebookAI/roberta-base": [
+        1.0106382978723405,
+        0.0
+      ]
+    }
+  },
+  "cross-encoder/ms-marco-MiniLM-L12-v2": {
+    "base_models": [
+      "microsoft/MiniLM-L12-H384-uncased"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.0,
+    "selected_candidates": [
+      {
+        "candidate_model": "lightonai/answerai-colbert-small-v1",
+        "score": [
+          1.0106382978723405,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "answerdotai/answerai-colbert-small-v1",
+        "score": [
+          1.0106382978723405,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "microsoft/MiniLM-L12-H384-uncased",
+        "score": [
+          1.0106382978723405,
+          0.0
+        ]
+      }
+    ],
+    "found_true_base_model": true,
+    "found_true_base_models": [
+      "microsoft/MiniLM-L12-H384-uncased"
+    ],
+    "true_base_model_scores": {
+      "microsoft/MiniLM-L12-H384-uncased": [
+        1.0106382978723405,
+        0.0
+      ]
+    }
+  },
+  "cmarkea/distilcamembert-base-ner": {
+    "base_models": [
+      "cmarkea/distilcamembert-base"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.16666666666666666,
+    "selected_candidates": [
+      {
+        "candidate_model": "tabularisai/multilingual-sentiment-analysis",
+        "score": [
+          1.053763440860215,
+          0.16666666666666666
+        ]
+      },
+      {
+        "candidate_model": "cybersectony/phishing-email-detection-distilbert_v2.4.1",
+        "score": [
+          1.053763440860215,
+          0.16666666666666666
+        ]
+      },
+      {
+        "candidate_model": "distilbert/distilbert-base-multilingual-cased",
+        "score": [
+          1.053763440860215,
+          0.16666666666666666
+        ]
+      },
+      {
+        "candidate_model": "distilbert/distilbert-base-uncased",
+        "score": [
+          1.053763440860215,
+          0.16666666666666666
+        ]
+      }
+    ],
+    "found_true_base_model": false,
+    "found_true_base_models": [],
+    "true_base_model_scores": {
+      "cmarkea/distilcamembert-base": "error"
+    }
+  },
+  "cross-encoder/stsb-roberta-base": {
+    "base_models": [
+      "FacebookAI/roberta-base"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.0,
+    "selected_candidates": [
+      {
+        "candidate_model": "flax-community/indonesian-roberta-base",
+        "score": [
+          1.0106382978723405,
+          0.0
+        ]
+      },
+      {
+        "candidate_model": "FacebookAI/roberta-base",
+        "score": [
+          1.0106382978723405,
+          0.0
+        ]
+      }
+    ],
+    "found_true_base_model": true,
+    "found_true_base_models": [
+      "FacebookAI/roberta-base"
+    ],
+    "true_base_model_scores": {
+      "FacebookAI/roberta-base": [
+        1.0106382978723405,
+        0.0
+      ]
+    }
+  },
+  "cross-encoder/ms-marco-MiniLM-L2-v2": {
+    "base_models": [
+      "cross-encoder/ms-marco-MiniLM-L12-v2"
+    ],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.47058823529411764,
+    "selected_candidates": [
+      {
+        "candidate_model": "cross-encoder/ms-marco-MiniLM-L6-v2",
+        "score": [
+          1.0294117647058822,
+          0.47058823529411764
+        ]
+      }
+    ],
+    "found_true_base_model": false,
+    "found_true_base_models": [],
+    "true_base_model_scores": {
+      "cross-encoder/ms-marco-MiniLM-L12-v2": [
+        1.0176991150442478,
+        0.6814159292035398
+      ]
+    }
+  },
+  "FacebookAI/xlm-roberta-base": {
+    "base_models": [],
+    "metric": "arch",
+    "n": 1,
+    "cutoff_score": 0.010638297872340425,
+    "selected_candidates": [
+      {
+        "candidate_model": "w11wo/indonesian-roberta-base-posp-tagger",
+        "score": [
+          1.0159574468085106,
+          0.010638297872340425
+        ]
+      },
+      {
+        "candidate_model": "syssec-utd/py312-pylingual-v1-segmenter",
+        "score": [
+          1.0159574468085106,
+          0.010638297872340425
+        ]
+      },
+      {
+        "candidate_model": "vibhorag101/roberta-base-suicide-prediction-phr",
+        "score": [
+          1.0159574468085106,
+          0.010638297872340425
+        ]
+      },
+      {
+        "candidate_model": "cross-encoder/stsb-roberta-base",
+        "score": [
+          1.0159574468085106,
+          0.010638297872340425
+        ]
+      },
+      {
+        "candidate_model": "flax-community/indonesian-roberta-base",
+        "score": [
+          1.0159574468085106,
+          0.010638297872340425
+        ]
+      }
+    ],
+    "found_true_base_model": false,
+    "found_true_base_models": [],
+    "true_base_model_scores": {}
+  }
+}

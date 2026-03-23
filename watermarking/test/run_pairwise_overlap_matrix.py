@@ -116,6 +116,9 @@ def phase1_generate_fingerprints(
     for i, name in enumerate(models):
         print(f"\n[{i+1}/{len(models)}] {name}")
         mt = time.time()
+        
+        model = None
+        tok = None
 
         try:
             model, tok, _ = load_hf_model(name, device_map={"": device})
@@ -132,16 +135,23 @@ def phase1_generate_fingerprints(
                 fps.append(fp)
                 print(f"  fp {fi+1}/{args.num_fingerprints} generated")
 
-            unload_hf_model(model, tok)
             all_fps[name] = fps
 
         except Exception as e:
             print(f"  [ERROR] {e}")
             errors[name] = traceback.format_exc()
-            try:
+        
+        finally:
+            # Always unload, even if error occurred
+            if model is not None or tok is not None:
                 unload_hf_model(model, tok)
-            except Exception:
-                pass
+            # Extra cleanup after unload
+            import gc
+            import torch
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
 
         elapsed = time.time() - mt
         times.append(elapsed)
@@ -170,16 +180,13 @@ def phase1_generate_fingerprints(
 # Phase 2 – Compute bottom-k caches (one model load per model)
 # ---------------------------------------------------------------------------
 
-BATCH_SIZE_BOTTOMK = 64  # max prompts per forward pass to avoid OOM
-
-
 def _compute_all_bottomk_for_model(
-    model, tok, all_prompts: List[str], k: int, device: str,
+    model, tok, all_prompts: List[str], k: int, device: str, batch_size: int = 32,
 ) -> List[List[int]]:
     """Compute bottom-k for many prompts, chunked to avoid OOM."""
     results = []
-    for start in range(0, len(all_prompts), BATCH_SIZE_BOTTOMK):
-        chunk = all_prompts[start:start + BATCH_SIZE_BOTTOMK]
+    for start in range(0, len(all_prompts), batch_size):
+        chunk = all_prompts[start:start + batch_size]
         batch_result = compute_bottomk_vocab_batch(
             model, tok, prompts=chunk, k=k, device=device,
         )
@@ -218,8 +225,9 @@ def phase2_compute_caches(
     all_prompts = unique_prompts
 
     n_prompts = len(all_prompts)
+    batch_size = getattr(args, 'batch_size_bottomk', 32)
     print(f"Total unique fingerprints to evaluate: {n_prompts}")
-    print(f"Bottom-k batch size: {BATCH_SIZE_BOTTOMK}")
+    print(f"Bottom-k batch size: {batch_size}")
     print()
 
     caches: Dict[str, Dict[str, List[int]]] = {}
@@ -235,14 +243,15 @@ def phase2_compute_caches(
             continue
 
         mt = time.time()
+        model = None
+        tok = None
+        
         try:
             model, tok, _ = load_hf_model(name, device_map={"": device})
 
             bottomk_lists = _compute_all_bottomk_for_model(
-                model, tok, all_prompts, args.bottom_k_vocab, device,
+                model, tok, all_prompts, args.bottom_k_vocab, device, batch_size,
             )
-
-            unload_hf_model(model, tok)
 
             cache = {fp: bk for fp, bk in zip(all_prompts, bottomk_lists)}
             caches[name] = cache
@@ -251,10 +260,18 @@ def phase2_compute_caches(
         except Exception as e:
             print(f"  [ERROR] {e}")
             traceback.print_exc()
-            try:
+        
+        finally:
+            # Always unload, even if error occurred
+            if model is not None or tok is not None:
                 unload_hf_model(model, tok)
-            except Exception:
-                pass
+            # Extra cleanup after unload
+            import gc
+            import torch
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
 
         elapsed = time.time() - mt
         times.append(elapsed)
@@ -425,6 +442,8 @@ def parse_args() -> argparse.Namespace:
                    help="GPU ID to use (e.g., '2')")
     p.add_argument("--fingerprints_file", type=str, default=None,
                    help="Path to pre-generated fingerprints.json (skip Phase 1)")
+    p.add_argument("--batch_size_bottomk", type=int, default=32,
+                   help="Batch size for bottom-k computation (reduce if OOM)")
     return p.parse_args()
 
 
