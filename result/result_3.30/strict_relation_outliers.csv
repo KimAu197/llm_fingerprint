@@ -1,0 +1,72 @@
+model,outlier,overlap_score,relation_type,finetune_path
+Qwen/Qwen2-7B-Instruct,Qwen/Qwen2-7B,0.6403,direct_finetune,Qwen/Qwen2-7B -> Qwen/Qwen2-7B-Instruct
+Gensyn/Qwen2.5-7B-Instruct,Qwen/Qwen2.5-7B-Instruct,1.0,direct_finetune,Qwen/Qwen2.5-7B-Instruct -> Gensyn/Qwen2.5-7B-Instruct
+Gensyn/Qwen2.5-7B-Instruct,Qwen/Qwen2.5-7B,0.4439,indirect_finetune,Gensyn/Qwen2.5-7B-Instruct -> Qwen/Qwen2.5-7B-Instruct -> Qwen/Qwen2.5-7B
+Qwen/Qwen2.5-3B-Instruct,Qwen/Qwen2.5-3B,0.4474,direct_finetune,Qwen/Qwen2.5-3B -> Qwen/Qwen2.5-3B-Instruct
+Qwen/Qwen2.5-3B-Instruct,PowerInfer/SmallThinker-3B-Preview,0.2956,direct_finetune,Qwen/Qwen2.5-3B-Instruct -> PowerInfer/SmallThinker-3B-Preview
+Jurema-br/Jurema-7B,Qwen/Qwen2.5-7B-Instruct,0.6758,direct_finetune,Qwen/Qwen2.5-7B-Instruct -> Jurema-br/Jurema-7B
+Jurema-br/Jurema-7B,Qwen/Qwen2.5-7B,0.4226,indirect_finetune,Jurema-br/Jurema-7B -> Qwen/Qwen2.5-7B-Instruct -> Qwen/Qwen2.5-7B
+Menlo/ReZero-v0.1-llama-3.2-3b-it-grpo-250404,meta-llama/Llama-3.2-3B-Instruct,0.7282,direct_finetune,meta-llama/Llama-3.2-3B-Instruct -> Menlo/ReZero-v0.1-llama-3.2-3b-it-grpo-250404
+NousResearch/Hermes-3-Llama-3.1-8B,meta-llama/Llama-3.1-8B,0.3078,direct_finetune,meta-llama/Llama-3.1-8B -> NousResearch/Hermes-3-Llama-3.1-8B
+Qwen/Qwen2.5-1.5B-Instruct,unsloth/Qwen2.5-1.5B-Instruct,1.0,direct_finetune,Qwen/Qwen2.5-1.5B-Instruct -> unsloth/Qwen2.5-1.5B-Instruct
+Qwen/Qwen2.5-1.5B-Instruct,Qwen/Qwen2.5-1.5B,0.6051,direct_finetune,Qwen/Qwen2.5-1.5B -> Qwen/Qwen2.5-1.5B-Instruct
+Qwen/Qwen2.5-7B-Instruct,Gensyn/Qwen2.5-7B-Instruct,1.0,direct_finetune,Qwen/Qwen2.5-7B-Instruct -> Gensyn/Qwen2.5-7B-Instruct
+Qwen/Qwen2.5-7B-Instruct,arcee-ai/Meraj-Mini,0.689,direct_finetune,Qwen/Qwen2.5-7B-Instruct -> arcee-ai/Meraj-Mini
+Qwen/Qwen2.5-7B-Instruct,Jurema-br/Jurema-7B,0.6672,direct_finetune,Qwen/Qwen2.5-7B-Instruct -> Jurema-br/Jurema-7B
+Qwen/Qwen2.5-7B-Instruct,cooperleong00/Qwen2.5-7B-Instruct-Jailbroken,0.5683,direct_finetune,Qwen/Qwen2.5-7B-Instruct -> cooperleong00/Qwen2.5-7B-Instruct-Jailbroken
+Qwen/Qwen2.5-7B-Instruct,Qwen/Qwen2.5-7B,0.3899,direct_finetune,Qwen/Qwen2.5-7B -> Qwen/Qwen2.5-7B-Instruct
+Qwen/Qwen2.5-7B-Instruct,nvidia/OpenCodeReasoning-Nemotron-7B,0.2397,direct_finetune,Qwen/Qwen2.5-7B-Instruct -> nvidia/OpenCodeReasoning-Nemotron-7B
+Qwen/Qwen2.5-7B-Instruct,nvidia/OpenCodeReasoning-Nemotron-1.1-7B,0.2194,direct_finetune,Qwen/Qwen2.5-7B-Instruct -> nvidia/OpenCodeReasoning-Nemotron-1.1-7B
+Qwen/Qwen2.5-7B-Instruct-1M,Qwen/Qwen2.5-7B,0.3486,direct_finetune,Qwen/Qwen2.5-7B -> Qwen/Qwen2.5-7B-Instruct-1M
+Qwen/Qwen2.5-Coder-7B,Qwen/Qwen2.5-7B,0.1831,direct_finetune,Qwen/Qwen2.5-7B -> Qwen/Qwen2.5-Coder-7B
+SakanaAI/TinySwallow-1.5B,Qwen/Qwen2.5-1.5B,0.0797,indirect_finetune,SakanaAI/TinySwallow-1.5B -> Qwen/Qwen2.5-1.5B-Instruct -> Qwen/Qwen2.5-1.5B
+acon96/Home-Llama-3.2-3B,meta-llama/Llama-3.2-3B-Instruct,0.7331,direct_finetune,meta-llama/Llama-3.2-3B-Instruct -> acon96/Home-Llama-3.2-3B
+aisingapore/Llama-SEA-LION-v3-8B,meta-llama/Llama-3.1-8B,0.4606,indirect_finetune,aisingapore/Llama-SEA-LION-v3-8B -> meta-llama/Llama-3.1-8B-Instruct -> meta-llama/Llama-3.1-8B
+aisingapore/Llama-SEA-LION-v3-8B,meta-llama/Llama-3.1-8B-Instruct,0.3439,direct_finetune,meta-llama/Llama-3.1-8B-Instruct -> aisingapore/Llama-SEA-LION-v3-8B
+allenai/Llama-3.1-Tulu-3-8B-SFT,meta-llama/Llama-3.1-8B,0.5822,direct_finetune,meta-llama/Llama-3.1-8B -> allenai/Llama-3.1-Tulu-3-8B-SFT
+PowerInfer/SmallThinker-3B-Preview,Qwen/Qwen2.5-3B-Instruct,0.3666,direct_finetune,Qwen/Qwen2.5-3B-Instruct -> PowerInfer/SmallThinker-3B-Preview
+PowerInfer/SmallThinker-3B-Preview,Qwen/Qwen2.5-3B,0.2748,indirect_finetune,PowerInfer/SmallThinker-3B-Preview -> Qwen/Qwen2.5-3B-Instruct -> Qwen/Qwen2.5-3B
+allenai/llama-3.1-tulu-2-8b,meta-llama/Llama-3.1-8B,0.2087,direct_finetune,meta-llama/Llama-3.1-8B -> allenai/llama-3.1-tulu-2-8b
+unsloth/Llama-3.2-1B-Instruct,meta-llama/Llama-3.2-1B-Instruct,1.0,direct_finetune,meta-llama/Llama-3.2-1B-Instruct -> unsloth/Llama-3.2-1B-Instruct
+Qwen/Qwen2.5-Math-1.5B-Instruct,Qwen/Qwen2.5-Math-1.5B,0.1123,direct_finetune,Qwen/Qwen2.5-Math-1.5B -> Qwen/Qwen2.5-Math-1.5B-Instruct
+google/gemma-2-2b-jpn-it,google/gemma-2-2b-it,0.6401,direct_finetune,google/gemma-2-2b-it -> google/gemma-2-2b-jpn-it
+google/gemma-2-2b-jpn-it,google/gemma-2-2b,0.0151,indirect_finetune,google/gemma-2-2b-jpn-it -> google/gemma-2-2b-it -> google/gemma-2-2b
+Gensyn/Qwen2.5-1.5B-Instruct,Qwen/Qwen2.5-1.5B,0.6056,direct_finetune,Qwen/Qwen2.5-1.5B -> Gensyn/Qwen2.5-1.5B-Instruct
+arcee-ai/Llama-3.1-SuperNova-Lite,meta-llama/Llama-3.1-8B-Instruct,0.7868,direct_finetune,meta-llama/Llama-3.1-8B-Instruct -> arcee-ai/Llama-3.1-SuperNova-Lite
+arcee-ai/Llama-3.1-SuperNova-Lite,meta-llama/Llama-3.1-8B,0.1801,indirect_finetune,arcee-ai/Llama-3.1-SuperNova-Lite -> meta-llama/Llama-3.1-8B-Instruct -> meta-llama/Llama-3.1-8B
+arcee-ai/Meraj-Mini,Qwen/Qwen2.5-7B-Instruct,0.6711,direct_finetune,Qwen/Qwen2.5-7B-Instruct -> arcee-ai/Meraj-Mini
+arcee-ai/Meraj-Mini,Qwen/Qwen2.5-7B,0.4814,indirect_finetune,arcee-ai/Meraj-Mini -> Qwen/Qwen2.5-7B-Instruct -> Qwen/Qwen2.5-7B
+unsloth/Qwen2.5-0.5B-Instruct,Qwen/Qwen2.5-0.5B-Instruct,1.0,direct_finetune,Qwen/Qwen2.5-0.5B-Instruct -> unsloth/Qwen2.5-0.5B-Instruct
+context-labs/Meta-Llama-3.1-8B-Instruct-FP16,meta-llama/Llama-3.1-8B,0.1097,direct_finetune,meta-llama/Llama-3.1-8B -> context-labs/Meta-Llama-3.1-8B-Instruct-FP16
+cooperleong00/Qwen2.5-7B-Instruct-Jailbroken,Qwen/Qwen2.5-7B-Instruct,0.6071,direct_finetune,Qwen/Qwen2.5-7B-Instruct -> cooperleong00/Qwen2.5-7B-Instruct-Jailbroken
+cooperleong00/Qwen2.5-7B-Instruct-Jailbroken,Qwen/Qwen2.5-7B,0.3993,indirect_finetune,cooperleong00/Qwen2.5-7B-Instruct-Jailbroken -> Qwen/Qwen2.5-7B-Instruct -> Qwen/Qwen2.5-7B
+dphn/Dolphin3.0-Llama3.1-8B,meta-llama/Llama-3.1-8B,0.2538,direct_finetune,meta-llama/Llama-3.1-8B -> dphn/Dolphin3.0-Llama3.1-8B
+inference-net/Schematron-3B,meta-llama/Llama-3.2-3B-Instruct,0.8228,direct_finetune,meta-llama/Llama-3.2-3B-Instruct -> inference-net/Schematron-3B
+meta-llama/Llama-3.1-8B-Instruct,unsloth/Meta-Llama-3.1-8B-Instruct,1.0,direct_finetune,meta-llama/Llama-3.1-8B-Instruct -> unsloth/Meta-Llama-3.1-8B-Instruct
+meta-llama/Llama-3.1-8B-Instruct,arcee-ai/Llama-3.1-SuperNova-Lite,0.6326,direct_finetune,meta-llama/Llama-3.1-8B-Instruct -> arcee-ai/Llama-3.1-SuperNova-Lite
+meta-llama/Llama-3.1-8B-Instruct,aisingapore/Llama-SEA-LION-v3-8B,0.3237,direct_finetune,meta-llama/Llama-3.1-8B-Instruct -> aisingapore/Llama-SEA-LION-v3-8B
+meta-llama/Llama-3.1-8B-Instruct,meta-llama/Llama-3.1-8B,0.2226,direct_finetune,meta-llama/Llama-3.1-8B -> meta-llama/Llama-3.1-8B-Instruct
+meta-llama/Llama-Guard-3-8B,meta-llama/Llama-3.1-8B,0.1137,direct_finetune,meta-llama/Llama-3.1-8B -> meta-llama/Llama-Guard-3-8B
+dnotitia/Smoothie-Qwen3-1.7B,Qwen/Qwen3-1.7B,0.4898,direct_finetune,Qwen/Qwen3-1.7B -> dnotitia/Smoothie-Qwen3-1.7B
+unsloth/Qwen2.5-1.5B,Qwen/Qwen2.5-1.5B,1.0,direct_finetune,Qwen/Qwen2.5-1.5B -> unsloth/Qwen2.5-1.5B
+unsloth/Qwen2.5-1.5B-Instruct,Qwen/Qwen2.5-1.5B-Instruct,1.0,direct_finetune,Qwen/Qwen2.5-1.5B-Instruct -> unsloth/Qwen2.5-1.5B-Instruct
+unsloth/Qwen2.5-1.5B-Instruct,Qwen/Qwen2.5-1.5B,0.5976,indirect_finetune,unsloth/Qwen2.5-1.5B-Instruct -> Qwen/Qwen2.5-1.5B-Instruct -> Qwen/Qwen2.5-1.5B
+microsoft/UserLM-8b,meta-llama/Llama-3.1-8B,0.1854,direct_finetune,meta-llama/Llama-3.1-8B -> microsoft/UserLM-8b
+Qwen/Qwen2.5-Coder-1.5B,Qwen/Qwen2.5-1.5B,0.2225,direct_finetune,Qwen/Qwen2.5-1.5B -> Qwen/Qwen2.5-Coder-1.5B
+Qwen/Qwen2.5-Coder-1.5B,Qwen/Qwen2.5-Coder-1.5B-Instruct,0.1703,direct_finetune,Qwen/Qwen2.5-Coder-1.5B -> Qwen/Qwen2.5-Coder-1.5B-Instruct
+nvidia/OpenMath-Nemotron-1.5B,Qwen/Qwen2.5-Math-1.5B,0.055,direct_finetune,Qwen/Qwen2.5-Math-1.5B -> nvidia/OpenMath-Nemotron-1.5B
+unsloth/Qwen2.5-Math-1.5B,Qwen/Qwen2.5-Math-1.5B,1.0,direct_finetune,Qwen/Qwen2.5-Math-1.5B -> unsloth/Qwen2.5-Math-1.5B
+nvidia/OpenCodeReasoning-Nemotron-1.1-7B,Qwen/Qwen2.5-7B,0.2069,indirect_finetune,nvidia/OpenCodeReasoning-Nemotron-1.1-7B -> Qwen/Qwen2.5-7B-Instruct -> Qwen/Qwen2.5-7B
+nvidia/OpenCodeReasoning-Nemotron-1.1-7B,Qwen/Qwen2.5-7B-Instruct,0.1899,direct_finetune,Qwen/Qwen2.5-7B-Instruct -> nvidia/OpenCodeReasoning-Nemotron-1.1-7B
+nvidia/OpenCodeReasoning-Nemotron-7B,Qwen/Qwen2.5-7B-Instruct,0.2207,direct_finetune,Qwen/Qwen2.5-7B-Instruct -> nvidia/OpenCodeReasoning-Nemotron-7B
+nvidia/OpenCodeReasoning-Nemotron-7B,Qwen/Qwen2.5-7B,0.2156,indirect_finetune,nvidia/OpenCodeReasoning-Nemotron-7B -> Qwen/Qwen2.5-7B-Instruct -> Qwen/Qwen2.5-7B
+google/gemma-2-2b-it,google/gemma-2-2b-jpn-it,0.6201,direct_finetune,google/gemma-2-2b-it -> google/gemma-2-2b-jpn-it
+google/gemma-2-2b-it,google/gemma-2-2b,0.0167,direct_finetune,google/gemma-2-2b -> google/gemma-2-2b-it
+Qwen/Qwen2.5-Coder-1.5B-Instruct,Qwen/Qwen2.5-Coder-1.5B,0.1579,direct_finetune,Qwen/Qwen2.5-Coder-1.5B -> Qwen/Qwen2.5-Coder-1.5B-Instruct
+unsloth/Llama-3.1-8B,meta-llama/Llama-3.1-8B,1.0,direct_finetune,meta-llama/Llama-3.1-8B -> unsloth/Llama-3.1-8B
+unsloth/Llama-3.2-3B-Instruct,meta-llama/Llama-3.2-3B-Instruct,1.0,direct_finetune,meta-llama/Llama-3.2-3B-Instruct -> unsloth/Llama-3.2-3B-Instruct
+unsloth/Meta-Llama-3.1-8B-Instruct,meta-llama/Llama-3.1-8B-Instruct,1.0,direct_finetune,meta-llama/Llama-3.1-8B-Instruct -> unsloth/Meta-Llama-3.1-8B-Instruct
+unsloth/Meta-Llama-3.1-8B-Instruct,meta-llama/Llama-3.1-8B,0.1092,indirect_finetune,unsloth/Meta-Llama-3.1-8B-Instruct -> meta-llama/Llama-3.1-8B-Instruct -> meta-llama/Llama-3.1-8B
+Qwen/Qwen2.5-Math-1.5B,unsloth/Qwen2.5-Math-1.5B,1.0,direct_finetune,Qwen/Qwen2.5-Math-1.5B -> unsloth/Qwen2.5-Math-1.5B
+INSAIT-Institute/BgGPT-Gemma-2-2.6B-IT-v1.0,google/gemma-2-2b,0.2899,direct_finetune,google/gemma-2-2b -> INSAIT-Institute/BgGPT-Gemma-2-2.6B-IT-v1.0
+nvidia/OpenReasoning-Nemotron-1.5B,Qwen/Qwen2.5-1.5B,0.1243,direct_finetune,Qwen/Qwen2.5-1.5B -> nvidia/OpenReasoning-Nemotron-1.5B

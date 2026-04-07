@@ -1,0 +1,9 @@
+model,top1_partner,top1_overlap,top2_partner,top2_overlap,top2_mean,is_outlier,outlier_type
+microsoft/Orca-2-7b,lmsys/vicuna-7b-v1.5,0.470900,meta-llama/Llama-2-7b-hf,0.366100,0.418500,No,N/A
+meta-llama/Llama-2-7b-hf,lmsys/vicuna-7b-v1.5,0.488600,microsoft/Orca-2-7b,0.341400,0.415000,No,N/A
+lmsys/vicuna-7b-v1.5,microsoft/Orca-2-7b,0.459400,meta-llama/Llama-2-7b-hf,0.340300,0.399850,No,N/A
+lmsys/vicuna-7b-v1.1,lmsys/vicuna-7b-v1.5,0.376200,meta-llama/Llama-2-7b-hf,0.337200,0.356700,No,N/A
+EleutherAI/llemma_7b,meta-llama/CodeLlama-7b-hf,0.329100,meta-llama/Llama-2-7b-hf,0.247300,0.288200,No,N/A
+meta-llama/CodeLlama-7b-hf,EleutherAI/llemma_7b,0.303100,meta-llama/Llama-2-7b-hf,0.253500,0.278300,No,N/A
+LLM360/Amber,lmsys/vicuna-7b-v1.5,0.288700,meta-llama/Llama-2-7b-hf,0.245900,0.267300,No,N/A
+openlm-research/open_llama_7b,meta-llama/Llama-2-7b-hf,0.137000,lmsys/vicuna-7b-v1.1,0.132100,0.134550,No,N/A
