@@ -61,7 +61,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--batch_size_bottomk",
         type=int,
-        default=32,
+        default=64,
         help="Batch size for bottom-k (reduce on OOM)",
     )
     # Metadata / argparse.Namespace compatibility for phase2_compute_caches

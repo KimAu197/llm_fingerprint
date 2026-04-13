@@ -183,7 +183,6 @@ def phase1_generate_fingerprints(
                         torch.cuda.empty_cache()
                         torch.cuda.ipc_collect()
                         # Give GPU time to recover
-                        import time
                         time.sleep(2)
                 except Exception:
                     pass
@@ -236,7 +235,7 @@ def phase1_generate_fingerprints(
 # ---------------------------------------------------------------------------
 
 def _compute_all_bottomk_for_model(
-    model, tok, all_prompts: List[str], k: int, device: str, batch_size: int = 32,
+    model, tok, all_prompts: List[str], k: int, device: str, batch_size: int = 64,
 ) -> List[List[int]]:
     """Compute bottom-k for many prompts, chunked to avoid OOM."""
     results = []
@@ -281,7 +280,7 @@ def phase2_compute_caches(
     all_prompts = unique_prompts
 
     n_prompts = len(all_prompts)
-    batch_size = getattr(args, 'batch_size_bottomk', 32)
+    batch_size = getattr(args, 'batch_size_bottomk', 64)
     print(f"Total unique fingerprints to evaluate: {n_prompts}")
     print(f"Bottom-k batch size: {batch_size}")
     print()
@@ -340,7 +339,6 @@ def phase2_compute_caches(
                         torch.cuda.empty_cache()
                         torch.cuda.ipc_collect()
                         # Give GPU time to recover
-                        import time
                         time.sleep(2)
                 except Exception:
                     pass
@@ -561,7 +559,7 @@ def parse_args() -> argparse.Namespace:
                    help="GPU ID to use (e.g., '2')")
     p.add_argument("--fingerprints_file", type=str, default=None,
                    help="Path to pre-generated fingerprints.json (skip Phase 1)")
-    p.add_argument("--batch_size_bottomk", type=int, default=32,
+    p.add_argument("--batch_size_bottomk", type=int, default=64,
                    help="Batch size for bottom-k computation (reduce if OOM)")
     return p.parse_args()
 
