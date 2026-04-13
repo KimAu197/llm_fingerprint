@@ -19,11 +19,16 @@ Usage:
     # Skip Phase 1 if fingerprints already generated:
     python run_pairwise_overlap_matrix.py --csv_path models.csv --gpu_ids 2 \
         --fingerprints_file results/fingerprints.json
+
+Output directory also gets:
+    pairwise_overlap.log          - timestamped Phase 1/2 errors (full tracebacks)
+    phase2_cache_status.json      - Phase 2 failures/skips and run counts (-1 matrix rows)
 """
 from __future__ import annotations
 import argparse
 import csv
 import json
+import logging
 import sys
 import time
 import traceback
@@ -69,6 +74,31 @@ def save_matrix_csv(matrix: np.ndarray, models: List[str], path: Path):
         w.writerow([''] + models)
         for i, m in enumerate(models):
             w.writerow([m] + [f"{v:.6f}" for v in matrix[i]])
+
+
+_RUN_LOG = logging.getLogger("pairwise_overlap")
+
+
+class _FlushFileHandler(logging.FileHandler):
+    """Flush after every record so the log file can be tailed live (default FileHandler buffers)."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        super().emit(record)
+        self.flush()
+
+
+def setup_run_logging(output_dir: Path) -> None:
+    """Write timestamped messages to output_dir/pairwise_overlap.log (flushed after each line)."""
+    _RUN_LOG.setLevel(logging.DEBUG)
+    _RUN_LOG.handlers.clear()
+    log_path = output_dir / "pairwise_overlap.log"
+    fh = _FlushFileHandler(log_path, encoding="utf-8")
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(
+        logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+    )
+    _RUN_LOG.addHandler(fh)
+    _RUN_LOG.info("Logging to %s", log_path.resolve())
 
 
 def print_progress(idx: int, total: int, times: List[float], t0: float):
@@ -140,6 +170,7 @@ def phase1_generate_fingerprints(
         except Exception as e:
             print(f"  [ERROR] {e}")
             errors[name] = traceback.format_exc()
+            _RUN_LOG.exception("Phase 1 fingerprint generation failed for %s", name)
             
             # If OOM, try to reset CUDA context for next model
             if "out of memory" in str(e).lower() or "cuda" in str(e).lower():
@@ -223,6 +254,7 @@ def phase2_compute_caches(
     all_fps: Dict[str, List[str]],
     args: argparse.Namespace,
     gpu_id: int,
+    output_dir: Path,
 ) -> Dict[str, Dict[str, List[int]]]:
     """
     Load each model once, compute bottom-k for ALL fingerprints from ALL models.
@@ -255,6 +287,8 @@ def phase2_compute_caches(
     print()
 
     caches: Dict[str, Dict[str, List[int]]] = {}
+    failures: Dict[str, str] = {}
+    skipped: Dict[str, str] = {}
     times: List[float] = []
     t0 = time.time()
     device = f"cuda:{gpu_id}"
@@ -263,7 +297,10 @@ def phase2_compute_caches(
         print(f"\n[{i+1}/{len(models)}] {name}")
 
         if name not in all_fps:
-            print("  [SKIP] No fingerprints (Phase 1 failed)")
+            reason = "No fingerprints (Phase 1 failed or model missing from fingerprints JSON)"
+            print(f"  [SKIP] {reason}")
+            skipped[name] = reason
+            _RUN_LOG.warning("Phase 2 skip %s: %s", name, reason)
             continue
 
         mt = time.time()
@@ -284,6 +321,13 @@ def phase2_compute_caches(
         except Exception as e:
             print(f"  [ERROR] {e}")
             traceback.print_exc()
+            failures[name] = traceback.format_exc()
+            _RUN_LOG.exception(
+                "Phase 2 bottom-k cache failed for %s (%d unique prompts, batch_size=%s)",
+                name,
+                n_prompts,
+                batch_size,
+            )
             
             # If OOM, try to reset CUDA context for next model
             if "out of memory" in str(e).lower() or "cuda" in str(e).lower():
@@ -309,6 +353,9 @@ def phase2_compute_caches(
                     unload_hf_model(model, tok)
             except Exception as cleanup_err:
                 print(f"  [WARNING] Cleanup failed: {cleanup_err}")
+                _RUN_LOG.warning(
+                    "Phase 2 cleanup after %s failed: %s", name, cleanup_err
+                )
             
             # Extra cleanup after unload - also wrapped
             try:
@@ -327,6 +374,29 @@ def phase2_compute_caches(
 
     print(f"\nPhase 2 done: {len(caches)}/{len(models)} models OK  "
           f"({format_time(time.time() - t0)})")
+
+    status_path = output_dir / "phase2_cache_status.json"
+    status = {
+        "failures": failures,
+        "skipped": skipped,
+        "num_caches_ok": len(caches),
+        "num_models": len(models),
+        "num_unique_prompts": n_prompts,
+        "batch_size_bottomk": batch_size,
+    }
+    with open(status_path, "w", encoding="utf-8") as f:
+        json.dump(status, f, indent=2)
+    if failures or skipped:
+        print(f"\n[WARNING] Phase 2: {len(failures)} failure(s), {len(skipped)} skip(s). "
+              f"See {status_path.name} and pairwise_overlap.log")
+        _RUN_LOG.info(
+            "Phase 2 summary: failures=%d skips=%d caches_ok=%d",
+            len(failures),
+            len(skipped),
+            len(caches),
+        )
+    else:
+        print(f"\n[INFO] Phase 2 status written: {status_path.name}")
 
     return caches
 
@@ -401,6 +471,7 @@ def run_experiment(args: argparse.Namespace) -> None:
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    setup_run_logging(output_dir)
 
     print("=" * 70)
     print("PAIRWISE OVERLAP MATRIX (Optimized 2-Phase)")
@@ -433,7 +504,7 @@ def run_experiment(args: argparse.Namespace) -> None:
         all_fps = phase1_generate_fingerprints(models, args, gpu_id, output_dir)
 
     # --- Phase 2 ---
-    caches = phase2_compute_caches(models, all_fps, args, gpu_id)
+    caches = phase2_compute_caches(models, all_fps, args, gpu_id, output_dir)
 
     # --- Phase 3 ---
     phase3_build_matrix(models, all_fps, caches, output_dir)
