@@ -68,6 +68,21 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--num_fingerprints", type=int, default=5)
     p.add_argument("--k_bottom_sampling", type=int, default=50)
     p.add_argument("--fingerprint_length", type=int, default=64)
+    p.add_argument(
+        "--cuda_device_reset_each_model",
+        action="store_true",
+        help="cudaDeviceReset after every model (slow; strongest isolation)",
+    )
+    p.add_argument(
+        "--no_cuda_device_reset_on_error",
+        action="store_true",
+        help="Skip cudaDeviceReset after failures (not recommended)",
+    )
+    p.add_argument(
+        "--no_live_overlap_matrix",
+        action="store_true",
+        help="Do not write overlap_matrix after each Phase-2 model (default: live checkpoints on)",
+    )
     return p.parse_args()
 
 
@@ -134,6 +149,7 @@ def main() -> None:
         "fingerprints_per_model_inferred": n_fp,
         "bottom_k_vocab": args.bottom_k_vocab,
         "batch_size_bottomk": args.batch_size_bottomk,
+        "live_overlap_matrix": not getattr(args, "no_live_overlap_matrix", False),
         "seed": args.seed,
         "gpu_id": gpu_id,
         "total_time_seconds": time.time() - t_start,

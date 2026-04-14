@@ -22,6 +22,38 @@ def set_seed(seed: int = 42):
         torch.cuda.manual_seed_all(seed)
 
 
+# =============== Tokenizer (batch / causal LM) ===============
+
+
+def ensure_tokenizer_padding_for_batches(tok) -> bool:
+    """
+    Ensure left-padded batch tokenization has a valid pad_token_id.
+
+    Covers Galactica, GPT-Neo, some GPT-2 forks, and models with no explicit pad.
+
+    Returns:
+        True if new special tokens were added (caller must resize_token_embeddings).
+    """
+    tok.padding_side = "left"
+    if tok.pad_token_id is not None:
+        return False
+
+    if tok.eos_token is not None:
+        tok.pad_token = tok.eos_token
+        return False
+
+    if getattr(tok, "bos_token", None) not in (None, ""):
+        tok.pad_token = tok.bos_token
+        return False
+
+    if getattr(tok, "unk_token", None) not in (None, ""):
+        tok.pad_token = tok.unk_token
+        return False
+
+    tok.add_special_tokens({"pad_token": "<|pad|>"})
+    return True
+
+
 # =============== Model Loading ===============
 
 def load_hf_model(model_id: str, fourbit: bool = False, torch_dtype=torch.float16, device_map: str = "auto"):
@@ -38,8 +70,7 @@ def load_hf_model(model_id: str, fourbit: bool = False, torch_dtype=torch.float1
         (model, tokenizer, device) tuple
     """
     tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
-    if tok.pad_token is None:
-        tok.pad_token = tok.eos_token
+    need_resize = ensure_tokenizer_padding_for_batches(tok)
 
     kwargs = dict(trust_remote_code=True, device_map=device_map)
     if fourbit:
@@ -54,6 +85,8 @@ def load_hf_model(model_id: str, fourbit: bool = False, torch_dtype=torch.float1
         kwargs["torch_dtype"] = torch_dtype
 
     model = AutoModelForCausalLM.from_pretrained(model_id, **kwargs)
+    if need_resize:
+        model.resize_token_embeddings(len(tok))
     model.eval()
     return model, tok, next(model.parameters()).device
 
@@ -161,8 +194,7 @@ class SuspectModelHF:
         self.device = device
 
         self.tok = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-        if self.tok.pad_token is None:
-            self.tok.pad_token = self.tok.eos_token
+        need_resize = ensure_tokenizer_padding_for_batches(self.tok)
 
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name,
@@ -171,6 +203,8 @@ class SuspectModelHF:
             trust_remote_code=True,
             device_map={"": device},
         )
+        if need_resize:
+            self.model.resize_token_embeddings(len(self.tok))
         self.model.eval()
 
     @torch.no_grad()

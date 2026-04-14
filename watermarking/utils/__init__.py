@@ -13,11 +13,16 @@ from .metrics import (
     lineage_score_simple,
     overlap_ratio,
 )
+from .cuda_recovery import (
+    try_cuda_device_reset,
+    is_likely_cuda_hard_failure,
+)
 from .model_loader import (
     set_seed,
     load_hf_model,
     unload_hf_model,
     unload_llama_cpp,
+    ensure_tokenizer_padding_for_batches,
     SuspectModelHF,
     SuspectModelLlamaCpp,
     SuspectFromLoadedHF,

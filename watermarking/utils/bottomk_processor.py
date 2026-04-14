@@ -14,6 +14,8 @@ from typing import Iterable, List, Optional
 import torch
 from transformers import LogitsProcessor
 
+from .model_loader import ensure_tokenizer_padding_for_batches
+
 
 class BottomKLogitsProcessor(LogitsProcessor):
     """
@@ -167,6 +169,10 @@ def compute_bottomk_vocab_batch(
         return []
 
     model.eval()
+
+    need_resize = ensure_tokenizer_padding_for_batches(tokenizer)
+    if need_resize:
+        model.resize_token_embeddings(len(tokenizer))
 
     if device is None:
         try:

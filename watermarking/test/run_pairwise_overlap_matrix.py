@@ -23,11 +23,13 @@ Usage:
 Output directory also gets:
     pairwise_overlap.log          - timestamped Phase 1/2 errors (full tracebacks)
     phase2_cache_status.json      - Phase 2 failures/skips and run counts (-1 matrix rows)
+    overlap_matrix.csv / .npy     - during Phase 2, updated after each successful model (unless --no_live_overlap_matrix)
 """
 from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import logging
 import sys
 import time
@@ -47,6 +49,7 @@ from utils import (
     sample_fingerprint_prompt,
     compute_bottomk_vocab_batch,
     overlap_ratio,
+    try_cuda_device_reset,
 )
 
 
@@ -68,12 +71,114 @@ def load_model_list(csv_path: str) -> List[str]:
     return models
 
 
-def save_matrix_csv(matrix: np.ndarray, models: List[str], path: Path):
+def save_matrix_csv(
+    matrix: np.ndarray,
+    models: List[str],
+    path: Path,
+    *,
+    sync: bool = False,
+) -> None:
     with open(path, 'w', newline='', encoding='utf-8') as f:
         w = csv.writer(f)
         w.writerow([''] + models)
         for i, m in enumerate(models):
             w.writerow([m] + [f"{v:.6f}" for v in matrix[i]])
+        f.flush()
+        if sync:
+            os.fsync(f.fileno())
+
+
+def save_matrix_artifacts(
+    matrix: np.ndarray,
+    models: List[str],
+    output_dir: Path,
+    *,
+    sync: bool = True,
+) -> None:
+    """Write overlap_matrix.csv and overlap_matrix.npy; optional fsync on CSV for crash safety."""
+    csv_path = output_dir / "overlap_matrix.csv"
+    npy_path = output_dir / "overlap_matrix.npy"
+    save_matrix_csv(matrix, models, csv_path, sync=sync)
+    np.save(npy_path, matrix)
+
+
+def fill_overlap_matrix_inplace(
+    matrix: np.ndarray,
+    models: List[str],
+    all_fps: Dict[str, List[str]],
+    caches: Dict[str, Dict[str, List[int]]],
+) -> None:
+    """Fill matrix[i,j] from caches (same rules as Phase 3). Resets all entries to -1 first."""
+    matrix.fill(-1.0)
+    for i, mi in enumerate(models):
+        if mi not in all_fps or mi not in caches:
+            continue
+
+        fps_i = all_fps[mi]
+
+        for j, mj in enumerate(models):
+            if mj not in caches:
+                continue
+
+            if i == j:
+                matrix[i, j] = 1.0
+                continue
+
+            scores = []
+            for fp in fps_i:
+                if fp in caches[mi] and fp in caches[mj]:
+                    scores.append(overlap_ratio(caches[mi][fp], caches[mj][fp]))
+
+            if scores:
+                matrix[i, j] = sum(scores) / len(scores)
+
+
+def update_overlap_matrix_for_new_cache(
+    matrix: np.ndarray,
+    models: List[str],
+    all_fps: Dict[str, List[str]],
+    caches: Dict[str, Dict[str, List[int]]],
+    new_model: str,
+) -> None:
+    """
+    Incrementally update row and column for new_model after it enters caches.
+    Does not clear the rest of the matrix.
+    """
+    if new_model not in caches or new_model not in all_fps:
+        return
+    k = models.index(new_model)
+    mk = new_model
+    fps_k = all_fps[mk]
+
+    for j, mj in enumerate(models):
+        if mj not in caches:
+            continue
+        if j == k:
+            matrix[k, j] = 1.0
+            continue
+        scores = []
+        for fp in fps_k:
+            if fp in caches[mk] and fp in caches[mj]:
+                scores.append(overlap_ratio(caches[mk][fp], caches[mj][fp]))
+        if scores:
+            matrix[k, j] = sum(scores) / len(scores)
+        else:
+            matrix[k, j] = -1.0
+
+    for i, mi in enumerate(models):
+        if i == k:
+            continue
+        if mi not in all_fps or mi not in caches:
+            continue
+        fps_i = all_fps[mi]
+        scores = []
+        for fp in fps_i:
+            if fp in caches[mi] and fp in caches[mk]:
+                scores.append(overlap_ratio(caches[mi][fp], caches[mk][fp]))
+        if scores:
+            matrix[i, k] = sum(scores) / len(scores)
+        else:
+            matrix[i, k] = -1.0
 
 
 _RUN_LOG = logging.getLogger("pairwise_overlap")
@@ -85,6 +190,41 @@ class _FlushFileHandler(logging.FileHandler):
     def emit(self, record: logging.LogRecord) -> None:
         super().emit(record)
         self.flush()
+
+
+def _maybe_reset_cuda_after_model(
+    gpu_id: int,
+    args: argparse.Namespace,
+    *,
+    model_failed: bool,
+    cleanup_failed: bool,
+) -> None:
+    """
+    After unload, optionally cudaDeviceReset so a bad model cannot poison the next load.
+
+    Default: reset if the model step failed or unload raised. Use
+    --cuda_device_reset_each_model to reset every iteration (slow, safest).
+    """
+    each = getattr(args, "cuda_device_reset_each_model", False)
+    skip_on_error = getattr(args, "no_cuda_device_reset_on_error", False)
+    if each:
+        should_reset = True
+    elif skip_on_error:
+        should_reset = False
+    else:
+        should_reset = model_failed or cleanup_failed
+    if not should_reset:
+        return
+    ok = try_cuda_device_reset(gpu_id)
+    print(f"  [INFO] CUDA device {gpu_id} reset after model (cudaDeviceReset ok={ok})")
+    _RUN_LOG.info(
+        "CUDA device %s reset (cudaDeviceReset ok=%s, model_failed=%s, cleanup_failed=%s, each_model=%s)",
+        gpu_id,
+        ok,
+        model_failed,
+        cleanup_failed,
+        each,
+    )
 
 
 def setup_run_logging(output_dir: Path) -> None:
@@ -149,6 +289,8 @@ def phase1_generate_fingerprints(
         
         model = None
         tok = None
+        model_failed = False
+        cleanup_failed = False
 
         try:
             model, tok, _ = load_hf_model(name, device_map={"": device})
@@ -168,24 +310,10 @@ def phase1_generate_fingerprints(
             all_fps[name] = fps
 
         except Exception as e:
+            model_failed = True
             print(f"  [ERROR] {e}")
             errors[name] = traceback.format_exc()
             _RUN_LOG.exception("Phase 1 fingerprint generation failed for %s", name)
-            
-            # If OOM, try to reset CUDA context for next model
-            if "out of memory" in str(e).lower() or "cuda" in str(e).lower():
-                print("  [INFO] Attempting to recover CUDA context...")
-                try:
-                    import gc
-                    import torch
-                    gc.collect()
-                    if torch.cuda.is_available():
-                        torch.cuda.empty_cache()
-                        torch.cuda.ipc_collect()
-                        # Give GPU time to recover
-                        time.sleep(2)
-                except Exception:
-                    pass
         
         finally:
             # Always unload, even if error occurred
@@ -194,6 +322,7 @@ def phase1_generate_fingerprints(
                 if model is not None or tok is not None:
                     unload_hf_model(model, tok)
             except Exception as cleanup_err:
+                cleanup_failed = True
                 print(f"  [WARNING] Cleanup failed: {cleanup_err}")
             
             # Extra cleanup after unload - also wrapped
@@ -205,7 +334,11 @@ def phase1_generate_fingerprints(
                     torch.cuda.empty_cache()
                     torch.cuda.synchronize()
             except Exception:
-                pass  # Ignore cleanup errors (e.g., corrupted CUDA context)
+                cleanup_failed = True
+
+            _maybe_reset_cuda_after_model(
+                gpu_id, args, model_failed=model_failed, cleanup_failed=cleanup_failed
+            )
 
         elapsed = time.time() - mt
         times.append(elapsed)
@@ -292,6 +425,14 @@ def phase2_compute_caches(
     t0 = time.time()
     device = f"cuda:{gpu_id}"
 
+    live_matrix = not getattr(args, "no_live_overlap_matrix", False)
+    overlap_matrix: Optional[np.ndarray] = None
+    if live_matrix:
+        overlap_matrix = np.full((len(models), len(models)), -1.0)
+        print(
+            "[INFO] Live overlap matrix: overlap_matrix.csv / .npy updated after each successful model."
+        )
+
     for i, name in enumerate(models):
         print(f"\n[{i+1}/{len(models)}] {name}")
 
@@ -305,6 +446,8 @@ def phase2_compute_caches(
         mt = time.time()
         model = None
         tok = None
+        model_failed = False
+        cleanup_failed = False
         
         try:
             model, tok, _ = load_hf_model(name, device_map={"": device})
@@ -317,7 +460,32 @@ def phase2_compute_caches(
             caches[name] = cache
             print(f"  Computed bottom-k for {n_prompts} fingerprints")
 
+            if live_matrix and overlap_matrix is not None:
+                update_overlap_matrix_for_new_cache(
+                    overlap_matrix, models, all_fps, caches, name
+                )
+                save_matrix_artifacts(
+                    overlap_matrix, models, output_dir, sync=True
+                )
+                prog = output_dir / "phase2_progress.json"
+                with open(prog, "w", encoding="utf-8") as pf:
+                    json.dump(
+                        {
+                            "caches_ok_models": list(caches.keys()),
+                            "num_caches_ok": len(caches),
+                            "last_completed": name,
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                        pf,
+                        indent=2,
+                    )
+                print(
+                    f"  [CHECKPOINT] overlap matrix + {prog.name} "
+                    f"({len(caches)} models in caches)"
+                )
+
         except Exception as e:
+            model_failed = True
             print(f"  [ERROR] {e}")
             traceback.print_exc()
             failures[name] = traceback.format_exc()
@@ -327,21 +495,6 @@ def phase2_compute_caches(
                 n_prompts,
                 batch_size,
             )
-            
-            # If OOM, try to reset CUDA context for next model
-            if "out of memory" in str(e).lower() or "cuda" in str(e).lower():
-                print("  [INFO] Attempting to recover CUDA context...")
-                try:
-                    import gc
-                    import torch
-                    gc.collect()
-                    if torch.cuda.is_available():
-                        torch.cuda.empty_cache()
-                        torch.cuda.ipc_collect()
-                        # Give GPU time to recover
-                        time.sleep(2)
-                except Exception:
-                    pass
         
         finally:
             # Always unload, even if error occurred
@@ -350,6 +503,7 @@ def phase2_compute_caches(
                 if model is not None or tok is not None:
                     unload_hf_model(model, tok)
             except Exception as cleanup_err:
+                cleanup_failed = True
                 print(f"  [WARNING] Cleanup failed: {cleanup_err}")
                 _RUN_LOG.warning(
                     "Phase 2 cleanup after %s failed: %s", name, cleanup_err
@@ -364,7 +518,11 @@ def phase2_compute_caches(
                     torch.cuda.empty_cache()
                     torch.cuda.synchronize()
             except Exception:
-                pass  # Ignore cleanup errors (e.g., corrupted CUDA context)
+                cleanup_failed = True
+
+            _maybe_reset_cuda_after_model(
+                gpu_id, args, model_failed=model_failed, cleanup_failed=cleanup_failed
+            )
 
         elapsed = time.time() - mt
         times.append(elapsed)
@@ -416,39 +574,15 @@ def phase3_build_matrix(
 
     n = len(models)
     matrix = np.full((n, n), -1.0)
+    fill_overlap_matrix_inplace(matrix, models, all_fps, caches)
 
-    for i, mi in enumerate(models):
-        if mi not in all_fps or mi not in caches:
-            continue
-
-        fps_i = all_fps[mi]
-
-        for j, mj in enumerate(models):
-            if mj not in caches:
-                continue
-
-            if i == j:
-                matrix[i, j] = 1.0
-                continue
-
-            scores = []
-            for fp in fps_i:
-                if fp in caches[mi] and fp in caches[mj]:
-                    scores.append(overlap_ratio(caches[mi][fp], caches[mj][fp]))
-
-            if scores:
-                matrix[i, j] = sum(scores) / len(scores)
-
+    for i in range(n):
         if (i + 1) % 20 == 0 or (i + 1) == n:
             print(f"  Row {i+1}/{n}")
 
-    # Save
-    csv_path = output_dir / "overlap_matrix.csv"
-    npy_path = output_dir / "overlap_matrix.npy"
-    save_matrix_csv(matrix, models, csv_path)
-    np.save(npy_path, matrix)
-    print(f"\nMatrix saved: {csv_path}")
-    print(f"Numpy saved:  {npy_path}")
+    save_matrix_artifacts(matrix, models, output_dir, sync=True)
+    print(f"\nMatrix saved: {output_dir / 'overlap_matrix.csv'}")
+    print(f"Numpy saved:  {output_dir / 'overlap_matrix.npy'}")
 
     return matrix
 
@@ -561,6 +695,21 @@ def parse_args() -> argparse.Namespace:
                    help="Path to pre-generated fingerprints.json (skip Phase 1)")
     p.add_argument("--batch_size_bottomk", type=int, default=64,
                    help="Batch size for bottom-k computation (reduce if OOM)")
+    p.add_argument(
+        "--cuda_device_reset_each_model",
+        action="store_true",
+        help="cudaDeviceReset after every model (slow; strongest isolation)",
+    )
+    p.add_argument(
+        "--no_cuda_device_reset_on_error",
+        action="store_true",
+        help="Do not cudaDeviceReset after failures (next model may still fail; not recommended)",
+    )
+    p.add_argument(
+        "--no_live_overlap_matrix",
+        action="store_true",
+        help="Disable writing overlap_matrix.csv/.npy after each Phase-2 success (default: live checkpoints on)",
+    )
     return p.parse_args()
 
 
