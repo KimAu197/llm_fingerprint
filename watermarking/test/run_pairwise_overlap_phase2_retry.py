@@ -15,6 +15,11 @@ Two modes (same CLI):
    bottom-k on all prompts, and fill only row k and column k (same overlap definition
    as the main script). Cost is ~n model loads like full Phase 2, but no cache JSON.
 
+3) Regenerate fingerprints (optional --regenerate_fingerprints_models)
+   If matrix -1 was due to missing Phase-1 fingerprints, regenerate for listed ids,
+   merge into --fingerprints_file, then continue with Phase 2 when --phase2_models
+   is also set (or stop after saving JSON if only regeneration was requested).
+
 Usage (export caches once):
  python run_pairwise_overlap_phase2_retry.py \\
         --csv_path models.csv \\
@@ -40,6 +45,16 @@ Usage (one row / column, no bottomk_caches JSON — only refresh model k vs all 
         --fingerprints_file fingerprints.json \\
         --output_dir ./out \\
         --gpu_ids 0 \\
+        --existing_overlap_matrix ./out/overlap_matrix.npy \\
+        --phase2_models "meta-llama/Meta-Llama-3.1-8B"
+
+Usage (regenerate fingerprints for failed Phase1, then refresh one row in one run):
+    python run_pairwise_overlap_phase2_retry.py \\
+        --csv_path models.csv \\
+        --fingerprints_file fingerprints.json \\
+        --output_dir ./out \\
+        --gpu_ids 0 \\
+        --regenerate_fingerprints_models "meta-llama/Meta-Llama-3.1-8B" \\
         --existing_overlap_matrix ./out/overlap_matrix.npy \\
         --phase2_models "meta-llama/Meta-Llama-3.1-8B"
 """
@@ -73,7 +88,13 @@ from run_pairwise_overlap_matrix import (
     setup_run_logging,
     update_overlap_matrix_for_new_cache,
 )
-from utils import load_hf_model, overlap_ratio, set_seed, unload_hf_model
+from utils import (
+    load_hf_model,
+    overlap_ratio,
+    sample_fingerprint_prompt,
+    set_seed,
+    unload_hf_model,
+)
 
 
 def load_overlap_matrix_from_path(path: Path, models: List[str]) -> np.ndarray:
@@ -110,6 +131,104 @@ def load_overlap_matrix_from_path(path: Path, models: List[str]) -> np.ndarray:
                     mat[i, j] = vals[cj]
         return mat
     raise ValueError(f"Use .npy or .csv, got: {path}")
+
+
+def phase1_regenerate_fingerprints_for_models(
+    model_ids: List[str],
+    all_fps: Dict[str, List[str]],
+    args: argparse.Namespace,
+    gpu_id: int,
+    fingerprints_out: Path,
+    output_dir: Path,
+) -> Dict[str, List[str]]:
+    """
+    Regenerate fingerprints for ``model_ids`` only; merge into ``all_fps`` and
+    write ``fingerprints_out`` after each success (same generation settings as main pipeline).
+    """
+    print("\n" + "=" * 70)
+    print("PHASE 1 (REGENERATE FINGERPRINTS, SUBSET)")
+    print("=" * 70)
+
+    merged: Dict[str, List[str]] = dict(all_fps)
+    errors: Dict[str, str] = {}
+    device = f"cuda:{gpu_id}"
+    times: List[float] = []
+    t0 = time.time()
+
+    fingerprints_out.parent.mkdir(parents=True, exist_ok=True)
+
+    for i, name in enumerate(model_ids):
+        print(f"\n[{i+1}/{len(model_ids)}] fingerprints: {name}")
+        mt = time.time()
+        model = None
+        tok = None
+        model_failed = False
+        cleanup_failed = False
+        last_exc: Optional[BaseException] = None
+
+        try:
+            model, tok, _ = load_hf_model(name, device_map={"": device})
+            fps: List[str] = []
+            for fi in range(args.num_fingerprints):
+                fp = sample_fingerprint_prompt(
+                    model,
+                    tok,
+                    device=device,
+                    l_random_prefix=8,
+                    total_len=args.fingerprint_length,
+                    k_bottom=args.k_bottom_sampling,
+                )
+                fps.append(fp)
+                print(f"  fp {fi+1}/{args.num_fingerprints} generated")
+            merged[name] = fps
+            with open(fingerprints_out, "w", encoding="utf-8") as outf:
+                json.dump(merged, outf, indent=2)
+            print(f"  [SAVED] {fingerprints_out}")
+        except Exception as e:
+            model_failed = True
+            last_exc = e
+            print(f"  [ERROR] {e}")
+            errors[name] = traceback.format_exc()
+            _RUN_LOG.exception("Phase 1 regenerate failed for %s", name)
+        finally:
+            try:
+                if model is not None or tok is not None:
+                    unload_hf_model(model, tok)
+            except Exception as cleanup_err:
+                cleanup_failed = True
+                print(f"  [WARNING] Cleanup failed: {cleanup_err}")
+            try:
+                import gc
+                import torch
+
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
+            except Exception:
+                cleanup_failed = True
+            _maybe_reset_cuda_after_model(
+                gpu_id,
+                args,
+                model_failed=model_failed,
+                cleanup_failed=cleanup_failed,
+                last_exception=last_exc,
+            )
+
+        times.append(time.time() - mt)
+        print_progress(i, len(model_ids), times, t0)
+
+    if errors:
+        err_path = output_dir / "fingerprint_regenerate_errors.json"
+        with open(err_path, "w", encoding="utf-8") as ef:
+            json.dump(errors, ef, indent=2)
+        print(f"\n[WARNING] {len(errors)} model(s) failed regeneration -> {err_path}")
+
+    print(
+        f"\nPhase 1 subset done: {len(model_ids) - len(errors)}/{len(model_ids)} OK "
+        f"({format_time(time.time() - t0)})"
+    )
+    return merged
 
 
 def _dedup_all_prompts(models: List[str], all_fps: Dict[str, List[str]]) -> List[str]:
@@ -479,6 +598,9 @@ def build_phase2_namespace(args: argparse.Namespace) -> SimpleNamespace:
         no_cuda_device_reset_on_error=args.no_cuda_device_reset_on_error,
         cuda_device_reset_after_oom=args.cuda_device_reset_after_oom,
         no_live_overlap_matrix=args.no_live_overlap_matrix,
+        num_fingerprints=args.num_fingerprints,
+        fingerprint_length=args.fingerprint_length,
+        k_bottom_sampling=args.k_bottom_sampling,
     )
 
 
@@ -491,6 +613,19 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--output_dir", type=str, default="./pairwise_retry_out")
     p.add_argument("--gpu_ids", type=str, default=None)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument(
+        "--regenerate_fingerprints_models",
+        type=str,
+        default=None,
+        help=(
+            "Comma-separated model ids: run Phase 1 fingerprint generation only for these, "
+            "merge into --fingerprints_file. Use when -1 was due to missing fingerprints. "
+            "Combine with --phase2_models to regenerate then refresh overlap in one run."
+        ),
+    )
+    p.add_argument("--num_fingerprints", type=int, default=5)
+    p.add_argument("--fingerprint_length", type=int, default=64)
+    p.add_argument("--k_bottom_sampling", type=int, default=50)
     p.add_argument("--bottom_k_vocab", type=int, default=2000)
     p.add_argument("--batch_size_bottomk", type=int, default=64)
     p.add_argument(
@@ -540,11 +675,12 @@ def main() -> None:
     gpu_id = int(args.gpu_ids.split(",")[0]) if args.gpu_ids else 0
 
     fp_path = Path(args.fingerprints_file)
-    if not fp_path.is_file():
-        raise SystemExit(f"Missing fingerprints: {fp_path}")
-
-    with open(fp_path, "r", encoding="utf-8") as f:
-        all_fps: Dict[str, List[str]] = json.load(f)
+    if fp_path.is_file():
+        with open(fp_path, "r", encoding="utf-8") as f:
+            all_fps: Dict[str, List[str]] = json.load(f)
+    else:
+        all_fps = {}
+        print(f"[INFO] No existing file at {fp_path}; starting empty fingerprints dict.")
 
     models = load_model_list(args.csv_path)
     output_dir = Path(args.output_dir)
@@ -554,7 +690,53 @@ def main() -> None:
     phase2_ns = build_phase2_namespace(args)
     t0 = time.time()
 
+    regen_raw = args.regenerate_fingerprints_models
+    regen_ids = (
+        [s.strip() for s in regen_raw.split(",") if s.strip()]
+        if regen_raw and regen_raw.strip()
+        else []
+    )
+    if regen_ids:
+        unknown = [m for m in regen_ids if m not in models]
+        if unknown:
+            print(
+                f"[WARNING] These ids are not in --csv_path list (still attempting load): "
+                f"{unknown[:5]}{'...' if len(unknown) > 5 else ''}"
+            )
+        all_fps = phase1_regenerate_fingerprints_for_models(
+            regen_ids,
+            all_fps,
+            phase2_ns,
+            gpu_id,
+            fp_path,
+            output_dir,
+        )
+
     partial = bool(args.phase2_models and args.phase2_models.strip())
+    if regen_ids and not partial:
+        meta = {
+            "script": "run_pairwise_overlap_phase2_retry.py",
+            "fingerprints_only": True,
+            "regenerated": regen_ids,
+            "fingerprints_file": str(fp_path.resolve()),
+            "time_seconds": time.time() - t0,
+            "timestamp": datetime.now().isoformat(),
+        }
+        with open(output_dir / "phase2_retry_metadata.json", "w", encoding="utf-8") as mf:
+            json.dump(meta, mf, indent=2)
+        print(
+            f"\nFingerprints-only run finished. Updated: {fp_path.resolve()}\n"
+            f"Re-run with --phase2_models to refresh the overlap row/column."
+        )
+        return
+
+    if not partial:
+        if not all_fps:
+            raise SystemExit(
+                "Full Phase 2 needs a non-empty fingerprints.json "
+                "(use --regenerate_fingerprints_models or provide an existing file)."
+            )
+
     if partial:
         targets = [s.strip() for s in args.phase2_models.split(",") if s.strip()]
         if not targets:
@@ -616,6 +798,7 @@ def main() -> None:
     meta = {
         "script": "run_pairwise_overlap_phase2_retry.py",
         "partial": partial,
+        "regenerated_fingerprints": regen_ids,
         "no_cache_cross_row": bool(
             partial and not getattr(args, "bottomk_caches_file", None)
         ),
