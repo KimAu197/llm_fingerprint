@@ -198,32 +198,30 @@ def _maybe_reset_cuda_after_model(
     *,
     model_failed: bool,
     cleanup_failed: bool,
+    last_exception: Optional[BaseException] = None,
 ) -> None:
     """
-    After unload, optionally cudaDeviceReset so a bad model cannot poison the next load.
+    cudaDeviceReset is off by default: failed models are skipped and the loop
+    continues after unload + empty_cache only (same-process reset often breaks PyTorch).
 
-    Default: reset if the model step failed or unload raised. Use
-    --cuda_device_reset_each_model to reset every iteration (slow, safest).
+    Opt in with --cuda_device_reset_each_model only (resets after every model).
     """
-    each = getattr(args, "cuda_device_reset_each_model", False)
-    skip_on_error = getattr(args, "no_cuda_device_reset_on_error", False)
-    if each:
-        should_reset = True
-    elif skip_on_error:
-        should_reset = False
-    else:
-        should_reset = model_failed or cleanup_failed
-    if not should_reset:
+    if not getattr(args, "cuda_device_reset_each_model", False):
         return
+
+    _RUN_LOG.debug(
+        "each_model cuda reset context: model_failed=%s cleanup_failed=%s exc=%s",
+        model_failed,
+        cleanup_failed,
+        type(last_exception).__name__ if last_exception else None,
+    )
+
     ok = try_cuda_device_reset(gpu_id)
     print(f"  [INFO] CUDA device {gpu_id} reset after model (cudaDeviceReset ok={ok})")
     _RUN_LOG.info(
-        "CUDA device %s reset (cudaDeviceReset ok=%s, model_failed=%s, cleanup_failed=%s, each_model=%s)",
+        "CUDA device %s reset (cudaDeviceReset ok=%s, each_model=True)",
         gpu_id,
         ok,
-        model_failed,
-        cleanup_failed,
-        each,
     )
 
 
@@ -291,6 +289,7 @@ def phase1_generate_fingerprints(
         tok = None
         model_failed = False
         cleanup_failed = False
+        last_exc: Optional[BaseException] = None
 
         try:
             model, tok, _ = load_hf_model(name, device_map={"": device})
@@ -311,6 +310,7 @@ def phase1_generate_fingerprints(
 
         except Exception as e:
             model_failed = True
+            last_exc = e
             print(f"  [ERROR] {e}")
             errors[name] = traceback.format_exc()
             _RUN_LOG.exception("Phase 1 fingerprint generation failed for %s", name)
@@ -337,7 +337,11 @@ def phase1_generate_fingerprints(
                 cleanup_failed = True
 
             _maybe_reset_cuda_after_model(
-                gpu_id, args, model_failed=model_failed, cleanup_failed=cleanup_failed
+                gpu_id,
+                args,
+                model_failed=model_failed,
+                cleanup_failed=cleanup_failed,
+                last_exception=last_exc,
             )
 
         elapsed = time.time() - mt
@@ -448,6 +452,7 @@ def phase2_compute_caches(
         tok = None
         model_failed = False
         cleanup_failed = False
+        last_exc: Optional[BaseException] = None
         
         try:
             model, tok, _ = load_hf_model(name, device_map={"": device})
@@ -486,6 +491,7 @@ def phase2_compute_caches(
 
         except Exception as e:
             model_failed = True
+            last_exc = e
             print(f"  [ERROR] {e}")
             traceback.print_exc()
             failures[name] = traceback.format_exc()
@@ -521,7 +527,11 @@ def phase2_compute_caches(
                 cleanup_failed = True
 
             _maybe_reset_cuda_after_model(
-                gpu_id, args, model_failed=model_failed, cleanup_failed=cleanup_failed
+                gpu_id,
+                args,
+                model_failed=model_failed,
+                cleanup_failed=cleanup_failed,
+                last_exception=last_exc,
             )
 
         elapsed = time.time() - mt
@@ -698,12 +708,19 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--cuda_device_reset_each_model",
         action="store_true",
-        help="cudaDeviceReset after every model (slow; strongest isolation)",
+        help=(
+            "cudaDeviceReset after every model (default: never reset; skip failed models only)"
+        ),
     )
     p.add_argument(
         "--no_cuda_device_reset_on_error",
         action="store_true",
-        help="Do not cudaDeviceReset after failures (next model may still fail; not recommended)",
+        help="Deprecated (no-op): reset is never used on error unless --cuda_device_reset_each_model",
+    )
+    p.add_argument(
+        "--cuda_device_reset_after_oom",
+        action="store_true",
+        help="Deprecated (no-op): use --cuda_device_reset_each_model if you need reset",
     )
     p.add_argument(
         "--no_live_overlap_matrix",

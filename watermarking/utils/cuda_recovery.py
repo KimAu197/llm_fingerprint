@@ -80,6 +80,25 @@ def _cuda_device_reset_ctypes() -> Optional[int]:
         return None
 
 
+def is_out_of_memory_error(exc: BaseException) -> bool:
+    """
+    True for PyTorch / CUDA out-of-memory errors only.
+
+    Used to avoid cudaDeviceReset after OOM: reset in-process often breaks the
+    next torch.cuda / from_pretrained in the same process.
+    """
+    oom_types: list[type] = []
+    for mod in (torch, torch.cuda):
+        t = getattr(mod, "OutOfMemoryError", None)
+        if t is not None and t not in oom_types:
+            oom_types.append(t)
+    if oom_types and isinstance(exc, tuple(oom_types)):
+        return True
+    if "outofmemory" in type(exc).__name__.lower():
+        return True
+    return False
+
+
 def is_likely_cuda_hard_failure(exc: BaseException) -> bool:
     """Heuristic: failure may have left the CUDA context unusable."""
     name = type(exc).__name__.lower()

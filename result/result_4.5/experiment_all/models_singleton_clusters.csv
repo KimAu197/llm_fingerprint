@@ -1,0 +1,166 @@
+model_name,model_short_name,organization,family,cluster_id,direct_parent,base_model_from_dataset,fetch_error
+01-ai/Yi-6B,Yi-6B,01-ai,Yi-6B,49,,,
+01-ai/Yi-6B-200K,Yi-6B-200K,01-ai,Yi-6B-200K,50,,,
+01-ai/Yi-6B-Chat,Yi-6B-Chat,01-ai,Yi-6B-Chat,51,,,
+AdaptLLM/finance-chat,finance-chat,AdaptLLM,finance-chat,52,,,
+AdaptLLM/medicine-LLM,medicine-LLM,AdaptLLM,medicine-LLM,53,,,
+AdaptLLM/medicine-chat,medicine-chat,AdaptLLM,medicine-chat,54,,,
+Biomimicry-AI/ANIMA-Nectar-v2,ANIMA-Nectar-v2,Biomimicry-AI,ANIMA-Nectar-v2,55,,,
+ChrisMcCormick/deepseek-tiny-v0.1,deepseek-tiny-v0.1,ChrisMcCormick,deepseek-tiny-v0.1,56,,,
+EleutherAI/gpt-j-6b,gpt-j-6b,EleutherAI,gpt-j-6b,57,,,
+EleutherAI/gpt-neo-1.3B,gpt-neo-1.3B,EleutherAI,gpt-neo-1.3B,58,,,
+EleutherAI/llemma_7b,llemma_7b,EleutherAI,llemma_7b,59,,,
+EleutherAI/polyglot-ko-3.8b,polyglot-ko-3.8b,EleutherAI,polyglot-ko-3.8b,60,,,
+EleutherAI/pythia-1.4b,pythia-1.4b,EleutherAI,pythia-1.4b,61,,,
+EleutherAI/pythia-1b,pythia-1b,EleutherAI,pythia-1b,62,,,
+EleutherAI/pythia-2.8b,pythia-2.8b,EleutherAI,pythia-2.8b,63,,,
+EleutherAI/pythia-6.9b,pythia-6.9b,EleutherAI,pythia-6.9b,64,,,
+FelixChao/vicuna-7B-chemical,vicuna-7B-chemical,FelixChao,vicuna-7B-chemical,65,,,
+FelixChao/vicuna-7B-physics,vicuna-7B-physics,FelixChao,vicuna-7B-physics,66,,,
+Harshvir/Llama-2-7B-physics,Llama-2-7B-physics,Harshvir,Llama-2-7B-physics,67,,,
+HuggingFaceTB/SmolLM-135M,SmolLM-135M,HuggingFaceTB,SmolLM-135M,68,,,
+HuggingFaceTB/SmolLM2-135M,SmolLM2-135M,HuggingFaceTB,SmolLM2-135M,69,,,
+KoboldAI/GPT-Neo-2.7B-Horni-LN,GPT-Neo-2.7B-Horni-LN,KoboldAI,GPT-Neo-2.7B-Horni-LN,70,,,
+LGAI-EXAONE/EXAONE-4.0-1.2B,EXAONE-4.0-1.2B,LGAI-EXAONE,EXAONE-4.0-1.2B,71,,,
+LLM360/Amber,Amber,LLM360,Amber,72,,,
+LiquidAI/LFM2-1.2B,LFM2-1.2B,LiquidAI,LFM2-1.2B,73,,,
+LiquidAI/LFM2-350M,LFM2-350M,LiquidAI,LFM2-350M,74,,,
+Neko-Institute-of-Science/metharme-7b,metharme-7b,Neko-Institute-of-Science,metharme-7b,75,,,
+Neko-Institute-of-Science/pygmalion-7b,pygmalion-7b,Neko-Institute-of-Science,pygmalion-7b,76,,,
+Nexusflow/Starling-LM-7B-beta,Starling-LM-7B-beta,Nexusflow,Starling-LM-7B-beta,77,,,
+NinedayWang/PolyCoder-2.7B,PolyCoder-2.7B,NinedayWang,PolyCoder-2.7B,78,,,
+PetroGPT/WestSeverus-7B-DPO-v2,WestSeverus-7B-DPO-v2,PetroGPT,WestSeverus-7B-DPO-v2,79,,,
+PharMolix/BioMedGPT-LM-7B,BioMedGPT-LM-7B,PharMolix,BioMedGPT-LM-7B,80,,,
+PygmalionAI/pygmalion-2.7b,pygmalion-2.7b,PygmalionAI,pygmalion-2.7b,81,,,
+Qwen/Qwen1.5-0.5B-Chat,Qwen1.5-0.5B-Chat,Qwen,Qwen1.5-0.5B-Chat,82,,,
+Qwen/Qwen1.5-4B-Chat,Qwen1.5-4B-Chat,Qwen,Qwen1.5-4B-Chat,83,,,
+Qwen/Qwen1.5-7B-Chat,Qwen1.5-7B-Chat,Qwen,Qwen1.5-7B-Chat,84,,,
+S4nfs/Neeto-1.0-8b,Neeto-1.0-8b,S4nfs,Neeto-1.0-8b,85,,,
+SciPhi/SciPhi-Mistral-7B-32k,SciPhi-Mistral-7B-32k,SciPhi,SciPhi-Mistral-7B-32k,86,,,
+SciPhi/SciPhi-Self-RAG-Mistral-7B-32k,SciPhi-Self-RAG-Mistral-7B-32k,SciPhi,SciPhi-Self-RAG-Mistral-7B-32k,87,,,
+TheOneWhoWill/Bootstrap-LLM,Bootstrap-LLM,TheOneWhoWill,Bootstrap-LLM,88,,,
+TinyLlama/TinyLlama-1.1B-Chat-v0.5,TinyLlama-1.1B-Chat-v0.5,TinyLlama,TinyLlama-1.1B-Chat-v0.5,89,,,
+TinyLlama/TinyLlama-1.1B-Chat-v1.0,TinyLlama-1.1B-Chat-v1.0,TinyLlama,TinyLlama-1.1B-Chat-v1.0,90,,,
+TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T,TinyLlama-1.1B-intermediate-step-1431k-3T,TinyLlama,TinyLlama-1.1B-intermediate-step-1431k-3T,91,,,
+TinyLlama/TinyLlama_v1.1,TinyLlama_v1.1,TinyLlama,TinyLlama_v1.1,92,,,
+TinyLlama/TinyLlama_v1.1_math_code,TinyLlama_v1.1_math_code,TinyLlama,TinyLlama_v1.1_math_code,93,,,
+allenai/OLMoE-1B-7B-0924,OLMoE-1B-7B-0924,allenai,OLMoE-1B-7B-0924,94,,,
+allenai/llama-3.1-tulu-2-8b,llama-3.1-tulu-2-8b,allenai,llama-3.1-tulu-2-8b,95,,meta-llama/Meta-Llama-3.1-8B,
+aquif-ai/aquif-3.5-8B-Think,aquif-3.5-8B-Think,aquif-ai,aquif-3.5-8B-Think,96,,,"not_found: 401 Client Error. (Request ID: Root=1-69dd92df-2c5410a3202f61e216138d58;2738df92-4f9c-476d-8685-330f78d7e375)
+
+Repository Not Found for url: https://huggingface.co/api/models/aquif-ai/aquif-3.5-8B-Think?expand=cardData.
+Please make sure you specified the correct `repo_id` and `repo_type`.
+If you are trying to access a private or gated repo, make sure you are authenticated. For more details, see https://huggingface.co/docs/huggingface_hub/authentication
+Invalid username or password."
+arcee-ai/Llama-3.1-SuperNova-Lite,Llama-3.1-SuperNova-Lite,arcee-ai,Llama-3.1-SuperNova-Lite,97,,meta-llama/Meta-Llama-3.1-8B-Instruct,
+augmxnt/shisa-base-7b-v1,shisa-base-7b-v1,augmxnt,shisa-base-7b-v1,98,,,
+bardsai/jaskier-7b-dpo-v5.6,jaskier-7b-dpo-v5.6,bardsai,jaskier-7b-dpo-v5.6,99,,,
+berkeley-nest/Starling-LM-7B-alpha,Starling-LM-7B-alpha,berkeley-nest,Starling-LM-7B-alpha,100,,,
+beyoru/Luna,Luna,beyoru,Luna,101,,,
+bigcode/starcoder2-3b,starcoder2-3b,bigcode,starcoder2-3b,102,,,
+bigscience/bloom-560m,bloom-560m,bigscience,bloom-560m,103,,,
+bigscience/bloom-7b1,bloom-7b1,bigscience,bloom-7b1,104,,,
+bigscience/bloomz-1b1,bloomz-1b1,bigscience,bloomz-1b1,105,,,
+bigscience/bloomz-1b7,bloomz-1b7,bigscience,bloomz-1b7,106,,,
+bigscience/bloomz-560m,bloomz-560m,bigscience,bloomz-560m,107,,,
+bigscience/bloomz-7b1,bloomz-7b1,bigscience,bloomz-7b1,108,,,
+codellama/CodeLlama-7b-hf,CodeLlama-7b-hf,codellama,CodeLlama-7b-hf,109,,,
+context-labs/Meta-Llama-3.1-8B-Instruct-FP16,Meta-Llama-3.1-8B-Instruct-FP16,context-labs,Meta-Llama-3.1-8B-Instruct-FP16,110,,meta-llama/Meta-Llama-3.1-8B,
+databricks/dolly-v1-6b,dolly-v1-6b,databricks,dolly-v1-6b,111,,,"not_found: 401 Client Error. (Request ID: Root=1-69dd92e0-50de43966b85fd183016c489;713f27bb-d878-4ccb-8847-bc96d5dc7804)
+
+Repository Not Found for url: https://huggingface.co/api/models/databricks/dolly-v1-6b?expand=cardData.
+Please make sure you specified the correct `repo_id` and `repo_type`.
+If you are trying to access a private or gated repo, make sure you are authenticated. For more details, see https://huggingface.co/docs/huggingface_hub/authentication
+Invalid username or password."
+databricks/dolly-v2-3b,dolly-v2-3b,databricks,dolly-v2-3b,112,,,"not_found: 401 Client Error. (Request ID: Root=1-69dd92e0-0289406c29adff3e02517de3;bd2c91fa-ae62-47a8-bd6a-83f6f8d9d90e)
+
+Repository Not Found for url: https://huggingface.co/api/models/databricks/dolly-v2-3b?expand=cardData.
+Please make sure you specified the correct `repo_id` and `repo_type`.
+If you are trying to access a private or gated repo, make sure you are authenticated. For more details, see https://huggingface.co/docs/huggingface_hub/authentication
+Invalid username or password."
+databricks/dolly-v2-7b,dolly-v2-7b,databricks,dolly-v2-7b,113,,,"not_found: 401 Client Error. (Request ID: Root=1-69dd92e1-771057d05032cc0951d6f25b;97437c37-5c9f-4a5a-904c-3fb165b572f9)
+
+Repository Not Found for url: https://huggingface.co/api/models/databricks/dolly-v2-7b?expand=cardData.
+Please make sure you specified the correct `repo_id` and `repo_type`.
+If you are trying to access a private or gated repo, make sure you are authenticated. For more details, see https://huggingface.co/docs/huggingface_hub/authentication
+Invalid username or password."
+deepseek-ai/DeepSeek-R1-0528-Qwen3-8B,DeepSeek-R1-0528-Qwen3-8B,deepseek-ai,DeepSeek-R1-0528-Qwen3-8B,114,,,
+deepseek-ai/DeepSeek-R1-Distill-Llama-8B,DeepSeek-R1-Distill-Llama-8B,deepseek-ai,DeepSeek-R1-Distill-Llama-8B,115,,,
+deepseek-ai/DeepSeek-R1-Distill-Qwen-7B,DeepSeek-R1-Distill-Qwen-7B,deepseek-ai,DeepSeek-R1-Distill-Qwen-7B,116,,,
+deepseek-ai/deepseek-coder-1.3b-base,deepseek-coder-1.3b-base,deepseek-ai,deepseek-coder-1.3b-base,117,,,
+deepseek-ai/deepseek-coder-6.7b-instruct,deepseek-coder-6.7b-instruct,deepseek-ai,deepseek-coder-6.7b-instruct,118,,,
+deepseek-ai/deepseek-llm-7b-base,deepseek-llm-7b-base,deepseek-ai,deepseek-llm-7b-base,119,,,
+deepseek-ai/deepseek-llm-7b-chat,deepseek-llm-7b-chat,deepseek-ai,deepseek-llm-7b-chat,120,,,
+deepseek-ai/deepseek-math-7b-instruct,deepseek-math-7b-instruct,deepseek-ai,deepseek-math-7b-instruct,121,,,
+dicta-il/dictalm2.0,dictalm2.0,dicta-il,dictalm2.0,122,,,
+elyza/ELYZA-japanese-Llama-2-7b,ELYZA-japanese-Llama-2-7b,elyza,ELYZA-japanese-Llama-2-7b,123,,,
+elyza/ELYZA-japanese-Llama-2-7b-instruct,ELYZA-japanese-Llama-2-7b-instruct,elyza,ELYZA-japanese-Llama-2-7b-instruct,124,,,
+elyza/Llama-3-ELYZA-JP-8B,Llama-3-ELYZA-JP-8B,elyza,Llama-3-ELYZA-JP-8B,125,,,
+eren23/ogno-monarch-jaskier-merge-7b-OH-PREF-DPO,ogno-monarch-jaskier-merge-7b-OH-PREF-DPO,eren23,ogno-monarch-jaskier-merge-7b-OH-PREF-DPO,126,,,
+facebook/galactica-1.3b,galactica-1.3b,facebook,galactica-1.3b,127,,,
+google-t5/t5-large,t5-large,google-t5,t5-large,128,,,
+google-t5/t5-small,t5-small,google-t5,t5-small,129,,,
+google/flan-t5-base,flan-t5-base,google,flan-t5-base,130,,,
+google/flan-t5-large,flan-t5-large,google,flan-t5-large,131,,,
+google/gemma-2-9b,gemma-2-9b,google,gemma-2-9b,132,,,
+google/gemma-2b-it,gemma-2b-it,google,gemma-2b-it,133,,,
+gradientai/Llama-3-8B-Instruct-262k,Llama-3-8B-Instruct-262k,gradientai,Llama-3-8B-Instruct-262k,134,,,
+huggyllama/llama-7b,llama-7b,huggyllama,llama-7b,135,,,
+kevin009/llamaRAGdrama,llamaRAGdrama,kevin009,llamaRAGdrama,136,,,
+lgaalves/gpt1,gpt1,lgaalves,gpt1,137,,,
+lmsys/vicuna-7b-v1.1,vicuna-7b-v1.1,lmsys,vicuna-7b-v1.1,138,,,
+lmsys/vicuna-7b-v1.5,vicuna-7b-v1.5,lmsys,vicuna-7b-v1.5,139,,,
+lmsys/vicuna-7b-v1.5-16k,vicuna-7b-v1.5-16k,lmsys,vicuna-7b-v1.5-16k,140,,,
+m-a-p/ChatMusician,ChatMusician,m-a-p,ChatMusician,141,,,
+meta-llama/CodeLlama-7b-Instruct-hf,CodeLlama-7b-Instruct-hf,meta-llama,CodeLlama-7b-Instruct-hf,142,,,
+meta-llama/CodeLlama-7b-hf,CodeLlama-7b-hf,meta-llama,CodeLlama-7b-hf,143,,,
+meta-llama/Llama-2-7b-chat-hf,Llama-2-7b-chat-hf,meta-llama,Llama-2-7b-chat-hf,144,,,
+meta-llama/Llama-3.2-3B,Llama-3.2-3B,meta-llama,Llama-3.2-3B,145,,,
+meta-llama/Llama-Guard-3-8B,Llama-Guard-3-8B,meta-llama,Llama-Guard-3-8B,146,,meta-llama/Meta-Llama-3.1-8B,
+meta-llama/LlamaGuard-7b,LlamaGuard-7b,meta-llama,LlamaGuard-7b,147,,,
+meta-llama/Meta-Llama-3-8B-Instruct,Meta-Llama-3-8B-Instruct,meta-llama,Meta-Llama-3-8B-Instruct,148,,,
+meta-llama/Meta-Llama-Guard-2-8B,Meta-Llama-Guard-2-8B,meta-llama,Meta-Llama-Guard-2-8B,149,,,
+meta-math/MetaMath-Llemma-7B,MetaMath-Llemma-7B,meta-math,MetaMath-Llemma-7B,150,,,
+meta-math/MetaMath-Mistral-7B,MetaMath-Mistral-7B,meta-math,MetaMath-Mistral-7B,151,,,
+microsoft/Orca-2-7b,Orca-2-7b,microsoft,Orca-2-7b,152,,,
+microsoft/Phi-3-mini-128k-instruct,Phi-3-mini-128k-instruct,microsoft,Phi-3-mini-128k-instruct,153,,,
+microsoft/Phi-3-mini-4k-instruct,Phi-3-mini-4k-instruct,microsoft,Phi-3-mini-4k-instruct,154,,,
+microsoft/Phi-4-mini-instruct,Phi-4-mini-instruct,microsoft,Phi-4-mini-instruct,155,,,
+microsoft/Phi-4-mini-reasoning,Phi-4-mini-reasoning,microsoft,Phi-4-mini-reasoning,156,,,
+microsoft/bitnet-b1.58-2B-4T,bitnet-b1.58-2B-4T,microsoft,bitnet-b1.58-2B-4T,157,,,
+microsoft/phi-1,phi-1,microsoft,phi-1,158,,,
+microsoft/phi-1_5,phi-1_5,microsoft,phi-1_5,159,,,
+microsoft/phi-2,phi-2,microsoft,phi-2,160,,,
+mistralai/Ministral-8B-Instruct-2410,Ministral-8B-Instruct-2410,mistralai,Ministral-8B-Instruct-2410,161,,,
+mookiezi/Discord-Micae-8B-Preview,Discord-Micae-8B-Preview,mookiezi,Discord-Micae-8B-Preview,162,,,"not_found: 401 Client Error. (Request ID: Root=1-69dd92e1-5c2c09126538bfbd095dff32;f7b0df5f-a7d5-4947-bf76-c48dee5734fd)
+
+Repository Not Found for url: https://huggingface.co/api/models/mookiezi/Discord-Micae-8B-Preview?expand=cardData.
+Please make sure you specified the correct `repo_id` and `repo_type`.
+If you are trying to access a private or gated repo, make sure you are authenticated. For more details, see https://huggingface.co/docs/huggingface_hub/authentication
+Invalid username or password."
+mookiezi/Discord-Micae-Hermes-3-3B,Discord-Micae-Hermes-3-3B,mookiezi,Discord-Micae-Hermes-3-3B,163,,,"not_found: 401 Client Error. (Request ID: Root=1-69dd92e2-057066ea7ea7f53a4515bf44;8b96891f-1f46-42db-9014-f5b5dfd8f12f)
+
+Repository Not Found for url: https://huggingface.co/api/models/mookiezi/Discord-Micae-Hermes-3-3B?expand=cardData.
+Please make sure you specified the correct `repo_id` and `repo_type`.
+If you are trying to access a private or gated repo, make sure you are authenticated. For more details, see https://huggingface.co/docs/huggingface_hub/authentication
+Invalid username or password."
+mosaicml/mpt-7b-storywriter,mpt-7b-storywriter,mosaicml,mpt-7b-storywriter,164,,,"not_found: 401 Client Error. (Request ID: Root=1-69dd92e3-5e06931e63f5c1b124a0f8db;770860db-9d40-4576-b225-e1f7ebaaf327)
+
+Repository Not Found for url: https://huggingface.co/api/models/mosaicml/mpt-7b-storywriter?expand=cardData.
+Please make sure you specified the correct `repo_id` and `repo_type`.
+If you are trying to access a private or gated repo, make sure you are authenticated. For more details, see https://huggingface.co/docs/huggingface_hub/authentication
+Invalid username or password."
+openai-community/openai-gpt,openai-gpt,openai-community,openai-gpt,165,,,
+openchat/openchat_3.5,openchat_3.5,openchat,openchat_3.5,166,,,
+openlm-research/open_llama_7b,open_llama_7b,openlm-research,open_llama_7b,167,,,
+quantumaikr/KoreanLM,KoreanLM,quantumaikr,KoreanLM,168,,,
+rishiraj/CatPPT-base,CatPPT-base,rishiraj,CatPPT-base,169,,,
+roneneldan/TinyStories-1M,TinyStories-1M,roneneldan,TinyStories-1M,170,,,
+sarvamai/sarvam-1,sarvam-1,sarvamai,sarvam-1,171,,,
+scb10x/typhoon-7b,typhoon-7b,scb10x,typhoon-7b,172,,,
+stabilityai/stablelm-tuned-alpha-7b,stablelm-tuned-alpha-7b,stabilityai,stablelm-tuned-alpha-7b,173,,,
+tencent/Hunyuan-1.8B-Instruct,Hunyuan-1.8B-Instruct,tencent,Hunyuan-1.8B-Instruct,174,,,
+tiiuae/Falcon3-3B-Instruct,Falcon3-3B-Instruct,tiiuae,Falcon3-3B-Instruct,175,tiiuae/Falcon3-3B-Instruct,tiiuae/Falcon3-3B-Instruct,
+tiiuae/falcon-7b-instruct,falcon-7b-instruct,tiiuae,falcon-7b-instruct,176,,,
+vilm/vinallama-7b-chat,vinallama-7b-chat,vilm,vinallama-7b-chat,177,,,
+yam-peleg/Experiment26-7B,Experiment26-7B,yam-peleg,Experiment26-7B,178,,,

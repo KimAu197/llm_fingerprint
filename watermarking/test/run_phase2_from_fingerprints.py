@@ -71,12 +71,17 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--cuda_device_reset_each_model",
         action="store_true",
-        help="cudaDeviceReset after every model (slow; strongest isolation)",
+        help="cudaDeviceReset after every model (default: never reset)",
     )
     p.add_argument(
         "--no_cuda_device_reset_on_error",
         action="store_true",
-        help="Skip cudaDeviceReset after failures (not recommended)",
+        help="Deprecated (no-op)",
+    )
+    p.add_argument(
+        "--cuda_device_reset_after_oom",
+        action="store_true",
+        help="Deprecated (no-op)",
     )
     p.add_argument(
         "--no_live_overlap_matrix",

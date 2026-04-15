@@ -16,6 +16,7 @@ from .metrics import (
 from .cuda_recovery import (
     try_cuda_device_reset,
     is_likely_cuda_hard_failure,
+    is_out_of_memory_error,
 )
 from .model_loader import (
     set_seed,
