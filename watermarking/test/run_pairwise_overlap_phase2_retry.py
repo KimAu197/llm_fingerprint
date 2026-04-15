@@ -1,0 +1,633 @@
+"""
+run_pairwise_overlap_phase2_retry.py
+
+Two modes (same CLI):
+
+1) Full Phase 2 (default when --phase2_models is omitted)
+   Same as run_pairwise_overlap_matrix Phase 2 + Phase 3. Optionally write
+   --save_bottomk_caches so you can retry individual models later.
+
+2) Partial Phase 2 (when --phase2_models is set)
+   With --bottomk_caches_file: load other models' caches from disk, re-run GPU only
+   for listed ids (fast), merge into matrix.
+   Without --bottomk_caches_file: exactly one model id in --phase2_models; for that
+   model k compute bottom-k once, then load every other model j in turn, compute
+   bottom-k on all prompts, and fill only row k and column k (same overlap definition
+   as the main script). Cost is ~n model loads like full Phase 2, but no cache JSON.
+
+Usage (export caches once):
+ python run_pairwise_overlap_phase2_retry.py \\
+        --csv_path models.csv \\
+        --fingerprints_file fingerprints.json \\
+        --output_dir ./out \\
+        --gpu_ids 0 \\
+        --save_bottomk_caches ./out/bottomk_caches.json
+
+Usage (retry one row):
+    python run_pairwise_overlap_phase2_retry.py \\
+        --csv_path models.csv \\
+        --fingerprints_file fingerprints.json \\
+        --output_dir ./out \\
+        --gpu_ids 0 \\
+        --bottomk_caches_file ./out/bottomk_caches.json \\
+        --existing_overlap_matrix ./out/overlap_matrix.npy \\
+        --phase2_models "meta-llama/Meta-Llama-3.1-8B" \\
+        --save_bottomk_caches ./out/bottomk_caches.json
+
+Usage (one row / column, no bottomk_caches JSON — only refresh model k vs all others):
+    python run_pairwise_overlap_phase2_retry.py \\
+        --csv_path models.csv \\
+        --fingerprints_file fingerprints.json \\
+        --output_dir ./out \\
+        --gpu_ids 0 \\
+        --existing_overlap_matrix ./out/overlap_matrix.npy \\
+        --phase2_models "meta-llama/Meta-Llama-3.1-8B"
+"""
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import sys
+import time
+import traceback
+from datetime import datetime
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Dict, List, Optional
+
+import numpy as np
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from run_pairwise_overlap_matrix import (
+    _compute_all_bottomk_for_model,
+    _maybe_reset_cuda_after_model,
+    _RUN_LOG,
+    format_time,
+    load_model_list,
+    phase2_compute_caches,
+    phase3_build_matrix,
+    print_progress,
+    save_matrix_artifacts,
+    setup_run_logging,
+    update_overlap_matrix_for_new_cache,
+)
+from utils import load_hf_model, overlap_ratio, set_seed, unload_hf_model
+
+
+def load_overlap_matrix_from_path(path: Path, models: List[str]) -> np.ndarray:
+    if not path.is_file():
+        raise FileNotFoundError(f"Matrix file not found: {path}")
+    if path.suffix.lower() == ".npy":
+        arr = np.load(path)
+        if arr.shape != (len(models), len(models)):
+            raise ValueError(
+                f"{path} shape {arr.shape}, expected ({len(models)}, {len(models)})"
+            )
+        return arr.astype(np.float64, copy=True)
+    if path.suffix.lower() == ".csv":
+        with open(path, newline="", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            header = next(reader)
+            col_labels = header[1:]
+            row_data: Dict[str, List[float]] = {}
+            for row in reader:
+                if not row:
+                    continue
+                row_data[row[0]] = [float(x) for x in row[1:]]
+        col_index = {m: j for j, m in enumerate(col_labels)}
+        mat = np.full((len(models), len(models)), -1.0)
+        for i, mi in enumerate(models):
+            if mi not in row_data:
+                continue
+            vals = row_data[mi]
+            for j, mj in enumerate(models):
+                if mj not in col_index:
+                    continue
+                cj = col_index[mj]
+                if cj < len(vals):
+                    mat[i, j] = vals[cj]
+        return mat
+    raise ValueError(f"Use .npy or .csv, got: {path}")
+
+
+def _dedup_all_prompts(models: List[str], all_fps: Dict[str, List[str]]) -> List[str]:
+    all_prompts: List[str] = []
+    for m in models:
+        if m in all_fps:
+            all_prompts.extend(all_fps[m])
+    seen = set()
+    unique_prompts: List[str] = []
+    for p in all_prompts:
+        if p not in seen:
+            seen.add(p)
+            unique_prompts.append(p)
+    return unique_prompts
+
+
+def _matrix_cell_mi_mj(
+    mi: str,
+    mj: str,
+    all_fps: Dict[str, List[str]],
+    cache_i: Dict[str, List[int]],
+    cache_j: Dict[str, List[int]],
+) -> float:
+    """Same rule as fill_overlap_matrix_inplace: average over mi's fingerprints."""
+    if mi not in all_fps:
+        return -1.0
+    scores: List[float] = []
+    for fp in all_fps[mi]:
+        if fp in cache_i and fp in cache_j:
+            scores.append(overlap_ratio(cache_i[fp], cache_j[fp]))
+    if scores:
+        return float(sum(scores) / len(scores))
+    return -1.0
+
+
+def _run_one_model_bottomk(
+    name: str,
+    all_prompts: List[str],
+    args: argparse.Namespace,
+    gpu_id: int,
+) -> Dict[str, List[int]]:
+    device = f"cuda:{gpu_id}"
+    model = None
+    tok = None
+    model_failed = False
+    cleanup_failed = False
+    last_exc: Optional[BaseException] = None
+    try:
+        model, tok, _ = load_hf_model(name, device_map={"": device})
+        bottomk_lists = _compute_all_bottomk_for_model(
+            model,
+            tok,
+            all_prompts,
+            args.bottom_k_vocab,
+            device,
+            args.batch_size_bottomk,
+        )
+        return {fp: bk for fp, bk in zip(all_prompts, bottomk_lists)}
+    except Exception as e:
+        model_failed = True
+        last_exc = e
+        raise
+    finally:
+        try:
+            if model is not None or tok is not None:
+                unload_hf_model(model, tok)
+        except Exception:
+            cleanup_failed = True
+        try:
+            import gc
+            import torch
+
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+        except Exception:
+            cleanup_failed = True
+        _maybe_reset_cuda_after_model(
+            gpu_id,
+            args,
+            model_failed=model_failed,
+            cleanup_failed=cleanup_failed,
+            last_exception=last_exc,
+        )
+
+
+def phase2_cross_one_row_without_caches(
+    models: List[str],
+    all_fps: Dict[str, List[str]],
+    target_model: str,
+    args: argparse.Namespace,
+    gpu_id: int,
+    output_dir: Path,
+    existing_matrix_path: Optional[Path],
+) -> None:
+    """
+    For a single target k: compute cache_k, then for each j != k load j and
+    compute cache_j on all prompts; set matrix[k,j] and matrix[j,k] only.
+    """
+    print("\n" + "=" * 70)
+    print("PHASE 2 (ONE ROW / COLUMN, NO STORED CACHES)")
+    print("=" * 70)
+    if target_model not in models:
+        raise SystemExit(f"target not in CSV: {target_model}")
+    if target_model not in all_fps:
+        raise SystemExit(f"target has no fingerprints in JSON: {target_model}")
+
+    all_prompts = _dedup_all_prompts(models, all_fps)
+    n_prompts = len(all_prompts)
+    print(f"[INFO] Unique prompts (all models): {n_prompts}")
+
+    k = models.index(target_model)
+    mk = target_model
+
+    live = not args.no_live_overlap_matrix
+    if live:
+        if existing_matrix_path and existing_matrix_path.is_file():
+            matrix = load_overlap_matrix_from_path(existing_matrix_path, models)
+            print(f"[INFO] Seeded matrix from {existing_matrix_path}")
+        else:
+            matrix = np.full((len(models), len(models)), -1.0)
+            print("[INFO] Starting from empty matrix (-1); pass --existing_overlap_matrix to merge")
+    else:
+        matrix = np.full((len(models), len(models)), -1.0)
+
+    print(f"\n[1/2] Bottom-k for target only: {mk}")
+    cache_k = _run_one_model_bottomk(mk, all_prompts, args, gpu_id)
+    print(f"  Done ({n_prompts} prompts).")
+
+    matrix[k, k] = 1.0
+
+    times: List[float] = []
+    t0 = time.time()
+    n_others = len(models) - 1
+    for step, j in enumerate(i for i in range(len(models)) if i != k):
+        mj = models[j]
+        print(f"\n[{step+1}/{n_others}] Cross {mk} <-> {mj}")
+        mt = time.time()
+        try:
+            cache_j = _run_one_model_bottomk(mj, all_prompts, args, gpu_id)
+            matrix[k, j] = _matrix_cell_mi_mj(mk, mj, all_fps, cache_k, cache_j)
+            matrix[j, k] = _matrix_cell_mi_mj(mj, mk, all_fps, cache_j, cache_k)
+            if live:
+                save_matrix_artifacts(matrix, models, output_dir, sync=True)
+                with open(output_dir / "phase2_progress.json", "w", encoding="utf-8") as pf:
+                    json.dump(
+                        {
+                            "mode": "cross_one_row_no_caches",
+                            "target": mk,
+                            "last_cross_with": mj,
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                        pf,
+                        indent=2,
+                    )
+                print("  [CHECKPOINT] overlap_matrix updated")
+        except Exception as e:
+            print(f"  [ERROR] {e}")
+            traceback.print_exc()
+            _RUN_LOG.exception("cross-row failed at j=%s", mj)
+        times.append(time.time() - mt)
+        if times:
+            print_progress(step, n_others, times, t0)
+
+    save_matrix_artifacts(matrix, models, output_dir, sync=True)
+    if not live:
+        print("[INFO] Wrote overlap matrix (no intermediate checkpoints; --no_live_overlap_matrix)")
+
+    status_path = output_dir / "phase2_cache_status.json"
+    with open(status_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "mode": "cross_one_row_no_caches",
+                "target": mk,
+                "num_models": len(models),
+                "num_prompts": n_prompts,
+            },
+            f,
+            indent=2,
+        )
+    print(f"\n[INFO] Wrote {status_path.name}. Phase 3 skipped (only row/column k updated).")
+
+
+def phase2_partial_retry(
+    models: List[str],
+    all_fps: Dict[str, List[str]],
+    phase2_only: List[str],
+    bottomk_caches_path: Path,
+    existing_matrix_path: Path,
+    args: argparse.Namespace,
+    gpu_id: int,
+    output_dir: Path,
+) -> Dict[str, Dict[str, List[int]]]:
+    print("\n" + "=" * 70)
+    print("PHASE 2 (PARTIAL RETRY)")
+    print("=" * 70)
+
+    all_prompts: List[str] = []
+    for m in models:
+        if m in all_fps:
+            all_prompts.extend(all_fps[m])
+    seen = set()
+    unique_prompts = []
+    for p in all_prompts:
+        if p not in seen:
+            seen.add(p)
+            unique_prompts.append(p)
+    all_prompts = unique_prompts
+
+    n_prompts = len(all_prompts)
+    batch_size = args.batch_size_bottomk
+    device = f"cuda:{gpu_id}"
+
+    with open(bottomk_caches_path, "r", encoding="utf-8") as cf:
+        caches: Dict[str, Dict[str, List[int]]] = json.load(cf)
+    print(f"[INFO] Loaded caches for {len(caches)} models from {bottomk_caches_path}")
+
+    missing = [m for m in phase2_only if m not in models]
+    if missing:
+        raise SystemExit(f"--phase2_models not in CSV list: {missing}")
+    for m in phase2_only:
+        if m not in all_fps:
+            raise SystemExit(f"{m} has no fingerprints in JSON")
+
+    phase2_set = set(phase2_only)
+    failures: Dict[str, str] = {}
+    skipped: Dict[str, str] = {}
+    times: List[float] = []
+    t0 = time.time()
+
+    live = not args.no_live_overlap_matrix
+    overlap_matrix: Optional[np.ndarray] = None
+    if live:
+        overlap_matrix = load_overlap_matrix_from_path(existing_matrix_path, models)
+        print(
+            f"[INFO] Live matrix from {existing_matrix_path} "
+            "(updates after each successful retry model)"
+        )
+
+    for i, name in enumerate(models):
+        print(f"\n[{i+1}/{len(models)}] {name}")
+
+        if name not in phase2_set:
+            if name not in caches:
+                msg = "No cache entry (need full Phase 2 export in --bottomk_caches_file)"
+                print(f"  [SKIP] {msg}")
+                skipped[name] = msg
+            else:
+                print("  [SKIP] Not in --phase2_models; keeping loaded cache")
+            continue
+
+        if name not in all_fps:
+            skipped[name] = "No fingerprints"
+            continue
+
+        mt = time.time()
+        model = None
+        tok = None
+        model_failed = False
+        cleanup_failed = False
+        last_exc: Optional[BaseException] = None
+
+        try:
+            model, tok, _ = load_hf_model(name, device_map={"": device})
+            bottomk_lists = _compute_all_bottomk_for_model(
+                model,
+                tok,
+                all_prompts,
+                args.bottom_k_vocab,
+                device,
+                batch_size,
+            )
+            caches[name] = {fp: bk for fp, bk in zip(all_prompts, bottomk_lists)}
+            print(f"  Computed bottom-k for {n_prompts} fingerprints")
+
+            if live and overlap_matrix is not None:
+                update_overlap_matrix_for_new_cache(
+                    overlap_matrix, models, all_fps, caches, name
+                )
+                save_matrix_artifacts(overlap_matrix, models, output_dir, sync=True)
+                prog = output_dir / "phase2_progress.json"
+                with open(prog, "w", encoding="utf-8") as pf:
+                    json.dump(
+                        {
+                            "caches_ok_models": list(caches.keys()),
+                            "num_caches_ok": len(caches),
+                            "last_completed": name,
+                            "timestamp": datetime.now().isoformat(),
+                            "partial_retry": True,
+                        },
+                        pf,
+                        indent=2,
+                    )
+                print(f"  [CHECKPOINT] matrix + {prog.name}")
+
+        except Exception as e:
+            model_failed = True
+            last_exc = e
+            print(f"  [ERROR] {e}")
+            traceback.print_exc()
+            failures[name] = traceback.format_exc()
+            _RUN_LOG.exception("Partial Phase2 failed for %s", name)
+
+        finally:
+            try:
+                if model is not None or tok is not None:
+                    unload_hf_model(model, tok)
+            except Exception as cleanup_err:
+                cleanup_failed = True
+                print(f"  [WARNING] Cleanup failed: {cleanup_err}")
+            try:
+                import gc
+                import torch
+
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
+            except Exception:
+                cleanup_failed = True
+            _maybe_reset_cuda_after_model(
+                gpu_id,
+                args,
+                model_failed=model_failed,
+                cleanup_failed=cleanup_failed,
+                last_exception=last_exc,
+            )
+
+        times.append(time.time() - mt)
+        print_progress(i, len(models), times, t0)
+
+    status_path = output_dir / "phase2_cache_status.json"
+    with open(status_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "failures": failures,
+                "skipped": skipped,
+                "partial_retry": True,
+                "phase2_models": phase2_only,
+                "num_caches_ok": len(caches),
+                "num_models": len(models),
+            },
+            f,
+            indent=2,
+        )
+
+    if args.save_bottomk_caches:
+        sp = Path(args.save_bottomk_caches)
+        sp.parent.mkdir(parents=True, exist_ok=True)
+        with open(sp, "w", encoding="utf-8") as sf:
+            json.dump(caches, sf, separators=(",", ":"))
+        print(f"\n[INFO] Wrote merged caches ({len(caches)} models) -> {sp.resolve()}")
+
+    if live and overlap_matrix is not None:
+        save_matrix_artifacts(overlap_matrix, models, output_dir, sync=True)
+        print(f"[INFO] Final matrix -> {output_dir / 'overlap_matrix.csv'}")
+
+    return caches
+
+
+def build_phase2_namespace(args: argparse.Namespace) -> SimpleNamespace:
+    return SimpleNamespace(
+        bottom_k_vocab=args.bottom_k_vocab,
+        batch_size_bottomk=args.batch_size_bottomk,
+        cuda_device_reset_each_model=args.cuda_device_reset_each_model,
+        no_cuda_device_reset_on_error=args.no_cuda_device_reset_on_error,
+        cuda_device_reset_after_oom=args.cuda_device_reset_after_oom,
+        no_live_overlap_matrix=args.no_live_overlap_matrix,
+    )
+
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(
+        description="Full Phase 2 + optional cache export, or partial Phase 2 retry"
+    )
+    p.add_argument("--csv_path", type=str, required=True)
+    p.add_argument("--fingerprints_file", type=str, required=True)
+    p.add_argument("--output_dir", type=str, default="./pairwise_retry_out")
+    p.add_argument("--gpu_ids", type=str, default=None)
+    p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--bottom_k_vocab", type=int, default=2000)
+    p.add_argument("--batch_size_bottomk", type=int, default=64)
+    p.add_argument(
+        "--cuda_device_reset_each_model",
+        action="store_true",
+    )
+    p.add_argument("--no_cuda_device_reset_on_error", action="store_true")
+    p.add_argument("--cuda_device_reset_after_oom", action="store_true")
+    p.add_argument("--no_live_overlap_matrix", action="store_true")
+    p.add_argument(
+        "--save_bottomk_caches",
+        type=str,
+        default=None,
+        help="Write merged bottom-k caches JSON after this run (large file)",
+    )
+    p.add_argument(
+        "--phase2_models",
+        type=str,
+        default=None,
+        help="Comma-separated model ids for partial retry only. Omit for full Phase 2.",
+    )
+    p.add_argument(
+        "--bottomk_caches_file",
+        type=str,
+        default=None,
+        help=(
+            "Partial retry with caches: JSON from a prior full run. "
+            "If omitted with --phase2_models, runs one-row mode (exactly one model id) "
+            "without cache file."
+        ),
+    )
+    p.add_argument(
+        "--existing_overlap_matrix",
+        type=str,
+        default=None,
+        help=(
+            "Seed matrix (.npy/.csv) when merging partial results. "
+            "Optional for no-cache one-row mode (default: all -1 except updated row/column)."
+        ),
+    )
+    return p.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    set_seed(args.seed)
+    gpu_id = int(args.gpu_ids.split(",")[0]) if args.gpu_ids else 0
+
+    fp_path = Path(args.fingerprints_file)
+    if not fp_path.is_file():
+        raise SystemExit(f"Missing fingerprints: {fp_path}")
+
+    with open(fp_path, "r", encoding="utf-8") as f:
+        all_fps: Dict[str, List[str]] = json.load(f)
+
+    models = load_model_list(args.csv_path)
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    setup_run_logging(output_dir)
+
+    phase2_ns = build_phase2_namespace(args)
+    t0 = time.time()
+
+    partial = bool(args.phase2_models and args.phase2_models.strip())
+    if partial:
+        targets = [s.strip() for s in args.phase2_models.split(",") if s.strip()]
+        if not targets:
+            raise SystemExit("Empty --phase2_models")
+
+        if args.bottomk_caches_file:
+            if not args.existing_overlap_matrix:
+                raise SystemExit(
+                    "Partial retry with caches requires --existing_overlap_matrix"
+                )
+            caches = phase2_partial_retry(
+                models,
+                all_fps,
+                targets,
+                Path(args.bottomk_caches_file),
+                Path(args.existing_overlap_matrix),
+                phase2_ns,
+                gpu_id,
+                output_dir,
+            )
+            all_cached = all(m in caches for m in models)
+            if all_cached:
+                phase3_build_matrix(models, all_fps, caches, output_dir)
+            else:
+                print(
+                    "\n[INFO] Skipping Phase 3: not all models have caches. "
+                    "Matrix on disk reflects partial retry + seeded file."
+                )
+        else:
+            if len(targets) != 1:
+                raise SystemExit(
+                    "Without --bottomk_caches_file, give exactly one model in "
+                    "--phase2_models (or provide caches and use comma-separated list)."
+                )
+            ex = Path(args.existing_overlap_matrix) if args.existing_overlap_matrix else None
+            phase2_cross_one_row_without_caches(
+                models,
+                all_fps,
+                targets[0],
+                phase2_ns,
+                gpu_id,
+                output_dir,
+                ex,
+            )
+    else:
+        caches = phase2_compute_caches(
+            models, all_fps, phase2_ns, gpu_id, output_dir
+        )
+        if args.save_bottomk_caches:
+            sp = Path(args.save_bottomk_caches)
+            sp.parent.mkdir(parents=True, exist_ok=True)
+            with open(sp, "w", encoding="utf-8") as sf:
+                json.dump(caches, sf, separators=(",", ":"))
+            print(
+                f"\n[INFO] Wrote bottom-k caches ({len(caches)} models) -> {sp.resolve()}"
+            )
+        phase3_build_matrix(models, all_fps, caches, output_dir)
+
+    meta = {
+        "script": "run_pairwise_overlap_phase2_retry.py",
+        "partial": partial,
+        "no_cache_cross_row": bool(
+            partial and not getattr(args, "bottomk_caches_file", None)
+        ),
+        "models": models,
+        "time_seconds": time.time() - t0,
+        "timestamp": datetime.now().isoformat(),
+    }
+    with open(output_dir / "phase2_retry_metadata.json", "w", encoding="utf-8") as mf:
+        json.dump(meta, mf, indent=2)
+
+    print(f"\nDone in {format_time(time.time() - t0)}. Output: {output_dir.resolve()}")
+
+
+if __name__ == "__main__":
+    main()
