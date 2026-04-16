@@ -10,10 +10,13 @@ Two modes (same CLI):
 2) Partial Phase 2 (when --phase2_models is set)
    With --bottomk_caches_file: load other models' caches from disk, re-run GPU only
    for listed ids (fast), merge into matrix.
-   Without --bottomk_caches_file: exactly one model id in --phase2_models; for that
-   model k compute bottom-k once, then load every other model j in turn, compute
-   bottom-k on all prompts, and fill only row k and column k (same overlap definition
-   as the main script). Cost is ~n model loads like full Phase 2, but no cache JSON.
+   Without --bottomk_caches_file: one or more comma-separated ids in --phase2_models.
+   For each target, bottom-k is computed once (caches kept in RAM); for every other
+   model j, load j once and refresh all targets' rows/columns vs j; then fill
+   target-vs-target cells. Same overlap rules as the main script. No cache JSON.
+
+   Strict comparability with an old matrix: use the same --seed as the original
+   run (check experiment_metadata.json); default is 42 only if that was the old default.
 
 3) Regenerate fingerprints (optional --regenerate_fingerprints_models)
    If matrix -1 was due to missing Phase-1 fingerprints, regenerate for listed ids,
@@ -39,14 +42,15 @@ Usage (retry one row):
         --phase2_models "meta-llama/Meta-Llama-3.1-8B" \\
         --save_bottomk_caches ./out/bottomk_caches.json
 
-Usage (one row / column, no bottomk_caches JSON — only refresh model k vs all others):
+Usage (no bottomk_caches JSON — refresh several targets' rows/columns vs everyone):
     python run_pairwise_overlap_phase2_retry.py \\
         --csv_path models.csv \\
         --fingerprints_file fingerprints.json \\
         --output_dir ./out \\
         --gpu_ids 0 \\
+        --seed 42 \\
         --existing_overlap_matrix ./out/overlap_matrix.npy \\
-        --phase2_models "meta-llama/Meta-Llama-3.1-8B"
+        --phase2_models "org/a,org/b,org/c"
 
 Usage (regenerate fingerprints for failed Phase1, then refresh one row in one run):
     python run_pairwise_overlap_phase2_retry.py \\
@@ -62,6 +66,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import itertools
 import json
 import sys
 import time
@@ -316,33 +321,44 @@ def _run_one_model_bottomk(
         )
 
 
-def phase2_cross_one_row_without_caches(
+def phase2_cross_targets_without_caches(
     models: List[str],
     all_fps: Dict[str, List[str]],
-    target_model: str,
+    target_models: List[str],
     args: argparse.Namespace,
     gpu_id: int,
     output_dir: Path,
     existing_matrix_path: Optional[Path],
 ) -> None:
     """
-    For a single target k: compute cache_k, then for each j != k load j and
-    compute cache_j on all prompts; set matrix[k,j] and matrix[j,k] only.
+    For each target in ``target_models``: compute and pin bottom-k cache, then for
+    every non-target model j load j once and update matrix[target,j] and [j,target];
+    finally fill target-vs-target pairs using pinned caches only.
     """
     print("\n" + "=" * 70)
-    print("PHASE 2 (ONE ROW / COLUMN, NO STORED CACHES)")
+    print("PHASE 2 (MULTI TARGET, NO STORED CACHES)")
     print("=" * 70)
-    if target_model not in models:
-        raise SystemExit(f"target not in CSV: {target_model}")
-    if target_model not in all_fps:
-        raise SystemExit(f"target has no fingerprints in JSON: {target_model}")
+
+    seen: set = set()
+    targets: List[str] = []
+    for t in target_models:
+        if t not in seen:
+            seen.add(t)
+            targets.append(t)
+
+    for t in targets:
+        if t not in models:
+            raise SystemExit(f"target not in CSV: {t}")
+        if t not in all_fps:
+            raise SystemExit(f"target has no fingerprints in JSON: {t}")
 
     all_prompts = _dedup_all_prompts(models, all_fps)
     n_prompts = len(all_prompts)
     print(f"[INFO] Unique prompts (all models): {n_prompts}")
+    print(f"[INFO] Target model(s) ({len(targets)}): {targets}")
 
-    k = models.index(target_model)
-    mk = target_model
+    target_idx = {t: models.index(t) for t in targets}
+    target_set = set(targets)
 
     live = not args.no_live_overlap_matrix
     if live:
@@ -355,30 +371,36 @@ def phase2_cross_one_row_without_caches(
     else:
         matrix = np.full((len(models), len(models)), -1.0)
 
-    print(f"\n[1/2] Bottom-k for target only: {mk}")
-    cache_k = _run_one_model_bottomk(mk, all_prompts, args, gpu_id)
-    print(f"  Done ({n_prompts} prompts).")
+    pinned: Dict[str, Dict[str, List[int]]] = {}
+    print(f"\n--- Bottom-k for {len(targets)} target(s) (cached in RAM) ---")
+    for ti, t in enumerate(targets):
+        print(f"\n[targets {ti+1}/{len(targets)}] {t}")
+        pinned[t] = _run_one_model_bottomk(t, all_prompts, args, gpu_id)
+        print(f"  Done ({n_prompts} prompts).")
+        matrix[target_idx[t], target_idx[t]] = 1.0
 
-    matrix[k, k] = 1.0
-
+    others = [m for m in models if m not in target_set]
+    n_others = len(others)
     times: List[float] = []
     t0 = time.time()
-    n_others = len(models) - 1
-    for step, j in enumerate(i for i in range(len(models)) if i != k):
-        mj = models[j]
-        print(f"\n[{step+1}/{n_others}] Cross {mk} <-> {mj}")
+
+    print(f"\n--- Cross each of {n_others} non-target model(s) vs all targets ---")
+    for step, mj in enumerate(others):
+        print(f"\n[{step+1}/{n_others}] vs {mj}")
         mt = time.time()
         try:
             cache_j = _run_one_model_bottomk(mj, all_prompts, args, gpu_id)
-            matrix[k, j] = _matrix_cell_mi_mj(mk, mj, all_fps, cache_k, cache_j)
-            matrix[j, k] = _matrix_cell_mi_mj(mj, mk, all_fps, cache_j, cache_k)
+            for t in targets:
+                it, ij = target_idx[t], models.index(mj)
+                matrix[it, ij] = _matrix_cell_mi_mj(t, mj, all_fps, pinned[t], cache_j)
+                matrix[ij, it] = _matrix_cell_mi_mj(mj, t, all_fps, cache_j, pinned[t])
             if live:
                 save_matrix_artifacts(matrix, models, output_dir, sync=True)
                 with open(output_dir / "phase2_progress.json", "w", encoding="utf-8") as pf:
                     json.dump(
                         {
-                            "mode": "cross_one_row_no_caches",
-                            "target": mk,
+                            "mode": "cross_targets_no_caches",
+                            "targets": targets,
                             "last_cross_with": mj,
                             "timestamp": datetime.now().isoformat(),
                         },
@@ -394,6 +416,20 @@ def phase2_cross_one_row_without_caches(
         if times:
             print_progress(step, n_others, times, t0)
 
+    if len(targets) >= 2:
+        print("\n--- Target vs target (pinned caches only) ---")
+        for t1, t2 in itertools.combinations(targets, 2):
+            i1, i2 = target_idx[t1], target_idx[t2]
+            matrix[i1, i2] = _matrix_cell_mi_mj(
+                t1, t2, all_fps, pinned[t1], pinned[t2]
+            )
+            matrix[i2, i1] = _matrix_cell_mi_mj(
+                t2, t1, all_fps, pinned[t2], pinned[t1]
+            )
+        if live:
+            save_matrix_artifacts(matrix, models, output_dir, sync=True)
+            print("  [CHECKPOINT] target-target block updated")
+
     save_matrix_artifacts(matrix, models, output_dir, sync=True)
     if not live:
         print("[INFO] Wrote overlap matrix (no intermediate checkpoints; --no_live_overlap_matrix)")
@@ -402,15 +438,18 @@ def phase2_cross_one_row_without_caches(
     with open(status_path, "w", encoding="utf-8") as f:
         json.dump(
             {
-                "mode": "cross_one_row_no_caches",
-                "target": mk,
+                "mode": "cross_targets_no_caches",
+                "targets": targets,
                 "num_models": len(models),
                 "num_prompts": n_prompts,
             },
             f,
             indent=2,
         )
-    print(f"\n[INFO] Wrote {status_path.name}. Phase 3 skipped (only row/column k updated).")
+    print(
+        f"\n[INFO] Wrote {status_path.name}. Phase 3 skipped "
+        f"(only rows/columns for targets updated)."
+    )
 
 
 def phase2_partial_retry(
@@ -612,7 +651,17 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--fingerprints_file", type=str, required=True)
     p.add_argument("--output_dir", type=str, default="./pairwise_retry_out")
     p.add_argument("--gpu_ids", type=str, default=None)
-    p.add_argument("--seed", type=int, default=42)
+    p.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help=(
+            "RNG seed for Phase 1 fingerprint sampling (and any stochastic ops). "
+            "For strict comparability with an existing matrix, use the same seed as "
+            "the original experiment_metadata.json / CLI (default 42 only matches "
+            "runs that also used 42)."
+        ),
+    )
     p.add_argument(
         "--regenerate_fingerprints_models",
         type=str,
@@ -653,8 +702,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Partial retry with caches: JSON from a prior full run. "
-            "If omitted with --phase2_models, runs one-row mode (exactly one model id) "
-            "without cache file."
+            "If omitted with --phase2_models, runs no-cache cross mode for all listed ids."
         ),
     )
     p.add_argument(
@@ -672,6 +720,10 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     set_seed(args.seed)
+    print(
+        f"[INFO] RNG seed = {args.seed} "
+        "(use original experiment_metadata.json seed for strictly comparable new fingerprints)"
+    )
     gpu_id = int(args.gpu_ids.split(",")[0]) if args.gpu_ids else 0
 
     fp_path = Path(args.fingerprints_file)
@@ -719,6 +771,7 @@ def main() -> None:
             "fingerprints_only": True,
             "regenerated": regen_ids,
             "fingerprints_file": str(fp_path.resolve()),
+            "seed": args.seed,
             "time_seconds": time.time() - t0,
             "timestamp": datetime.now().isoformat(),
         }
@@ -766,16 +819,11 @@ def main() -> None:
                     "Matrix on disk reflects partial retry + seeded file."
                 )
         else:
-            if len(targets) != 1:
-                raise SystemExit(
-                    "Without --bottomk_caches_file, give exactly one model in "
-                    "--phase2_models (or provide caches and use comma-separated list)."
-                )
             ex = Path(args.existing_overlap_matrix) if args.existing_overlap_matrix else None
-            phase2_cross_one_row_without_caches(
+            phase2_cross_targets_without_caches(
                 models,
                 all_fps,
-                targets[0],
+                targets,
                 phase2_ns,
                 gpu_id,
                 output_dir,
@@ -798,6 +846,7 @@ def main() -> None:
     meta = {
         "script": "run_pairwise_overlap_phase2_retry.py",
         "partial": partial,
+        "seed": args.seed,
         "regenerated_fingerprints": regen_ids,
         "no_cache_cross_row": bool(
             partial and not getattr(args, "bottomk_caches_file", None)
