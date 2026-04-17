@@ -29,8 +29,12 @@ Two modes (same CLI):
    --existing_overlap_matrix with a .npy smaller than the CSV (new models at end):
    the matrix is expanded (new rows/cols -1, diagonal 1 for new indices). If the .npy
    is larger than the CSV, the top-left block is cropped. Use --strict_overlap_matrix_shape
-   to forbid resize. Alignment is by row order: first n_old CSV ids must match the .npy
-   from the original run.
+   to forbid resize. That positional alignment is wrong if you dropped or reordered models
+   (e.g. removed rows that were -1): use a    labeled matrix (--existing_overlap_matrix overlap.csv with row/col headers) or
+   --existing_overlap_npy_row_order (one model id per line, same order as .npy rows/columns)
+   to reindex by name. With a labeled .csv, every model_id in --csv_path is looked up in the
+   seed matrix and the working matrix is reformed to CSV order; ids only in the CSV (new
+   models) keep off-diagonal -1 until Phase2 computes them.
 
 Usage (export caches once):
  python run_pairwise_overlap_phase2_retry.py \\
@@ -83,7 +87,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 import numpy as np
 
@@ -109,6 +113,93 @@ from utils import (
     set_seed,
     unload_hf_model,
 )
+
+
+def _load_model_ids_one_per_line(path: Path) -> List[str]:
+    """Non-empty lines from a text file; strip; skip ``#`` comments."""
+    if not path.is_file():
+        raise FileNotFoundError(f"Row-order file not found: {path}")
+    out: List[str] = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            s = line.split("#", 1)[0].strip()
+            if s:
+                out.append(s)
+    return out
+
+
+def _square_npy_to_models_by_row_order(
+    arr: np.ndarray,
+    old_order: List[str],
+    models: List[str],
+    path_label: str,
+) -> np.ndarray:
+    """
+    Build ``len(models)`` x ``len(models)`` from a square .npy whose rows/columns
+    follow ``old_order``. Any pair missing from ``old_order`` stays -1; diagonal
+    entries left unset become 1.0.
+    """
+    if arr.ndim != 2 or arr.shape[0] != arr.shape[1]:
+        raise ValueError(f"{path_label} must be square, got {arr.shape}")
+    n_old = int(arr.shape[0])
+    if len(old_order) != n_old:
+        raise ValueError(
+            f"{path_label} is {n_old}x{n_old} but --existing_overlap_npy_row_order "
+            f"has {len(old_order)} lines"
+        )
+    old_index: Dict[str, int] = {}
+    for i, m in enumerate(old_order):
+        if m in old_index:
+            raise ValueError(
+                f"Duplicate model id in row-order file at lines {old_index[m]+1} "
+                f"and {i+1}: {m!r}"
+            )
+        old_index[m] = i
+    n = len(models)
+    mat = np.full((n, n), -1.0, dtype=np.float64)
+    for i, mi in enumerate(models):
+        oi = old_index.get(mi)
+        if oi is None:
+            continue
+        for j, mj in enumerate(models):
+            oj = old_index.get(mj)
+            if oj is None:
+                continue
+            mat[i, j] = float(arr[oi, oj])
+    missing = [m for m in models if m not in old_index]
+    if missing:
+        print(
+            f"[WARNING] {len(missing)} model(s) in --csv_path are not in the .npy row-order "
+            f"file (submatrix left -1 except diag): {missing[:5]!r}"
+            f"{'...' if len(missing) > 5 else ''}"
+        )
+    for i in range(n):
+        if mat[i, i] < 0:
+            mat[i, i] = 1.0
+    _log_reindexed_seed_stats(models, set(old_index.keys()), "npy + row-order file")
+    return mat
+
+
+def _log_reindexed_seed_stats(
+    models: List[str],
+    seed_model_ids: Set[str],
+    source: str,
+) -> None:
+    """``seed_model_ids`` are ids that exist as both row and column in the saved matrix."""
+    matched = sum(1 for m in models if m in seed_model_ids)
+    n = len(models)
+    print(
+        f"[INFO] Reindexed overlap seed ({source}): {matched}/{n} models in CSV have "
+        f"entries in the saved matrix; {n - matched} are new or absent (-1 off-diagonal "
+        f"until Phase2 computes them). Diagonal set to 1.0 where still unknown."
+    )
+
+
+def _ensure_overlap_diagonal_for_new_models(mat: np.ndarray) -> None:
+    """Overlap convention: diagonal 1.0; unknown cells are -1 until computed."""
+    for i in range(mat.shape[0]):
+        if mat[i, i] < 0:
+            mat[i, i] = 1.0
 
 
 def _align_square_npy_to_model_count(
@@ -155,11 +246,16 @@ def load_overlap_matrix_from_path(
     models: List[str],
     *,
     strict_shape: bool = False,
+    npy_row_order: Optional[List[str]] = None,
 ) -> np.ndarray:
     if not path.is_file():
         raise FileNotFoundError(f"Matrix file not found: {path}")
     if path.suffix.lower() == ".npy":
         arr = np.load(path)
+        if npy_row_order is not None:
+            return _square_npy_to_models_by_row_order(
+                arr, npy_row_order, models, str(path)
+            )
         n = len(models)
         if arr.shape == (n, n):
             return arr.astype(np.float64, copy=True)
@@ -170,6 +266,11 @@ def load_overlap_matrix_from_path(
             )
         return _align_square_npy_to_model_count(arr, n, str(path))
     if path.suffix.lower() == ".csv":
+        if npy_row_order is not None:
+            print(
+                "[INFO] Ignoring --existing_overlap_npy_row_order for .csv "
+                "(matrix is already labeled by model id)."
+            )
         with open(path, newline="", encoding="utf-8") as f:
             reader = csv.reader(f)
             header = next(reader)
@@ -180,6 +281,7 @@ def load_overlap_matrix_from_path(
                     continue
                 row_data[row[0]] = [float(x) for x in row[1:]]
         col_index = {m: j for j, m in enumerate(col_labels)}
+        seed_ids: Set[str] = set(row_data.keys()) & set(col_index.keys())
         mat = np.full((len(models), len(models)), -1.0)
         for i, mi in enumerate(models):
             if mi not in row_data:
@@ -191,8 +293,17 @@ def load_overlap_matrix_from_path(
                 cj = col_index[mj]
                 if cj < len(vals):
                     mat[i, j] = vals[cj]
+        _ensure_overlap_diagonal_for_new_models(mat)
+        _log_reindexed_seed_stats(models, seed_ids, "labeled overlap .csv")
         return mat
     raise ValueError(f"Use .npy or .csv, got: {path}")
+
+
+def _overlap_npy_row_order_from_cli(args: argparse.Namespace) -> Optional[List[str]]:
+    raw = getattr(args, "existing_overlap_npy_row_order", None)
+    if not raw or not str(raw).strip():
+        return None
+    return _load_model_ids_one_per_line(Path(raw))
 
 
 def phase1_regenerate_fingerprints_for_models(
@@ -427,6 +538,7 @@ def phase2_cross_targets_without_caches(
     gpu_id: int,
     output_dir: Path,
     existing_matrix_path: Optional[Path],
+    npy_row_order: Optional[List[str]] = None,
 ) -> None:
     """
     For each target in ``target_models``: compute and pin bottom-k cache, then for
@@ -467,6 +579,7 @@ def phase2_cross_targets_without_caches(
                 strict_shape=getattr(
                     args, "strict_overlap_matrix_shape", False
                 ),
+                npy_row_order=npy_row_order,
             )
             print(f"[INFO] Seeded matrix from {existing_matrix_path}")
         else:
@@ -565,6 +678,7 @@ def phase2_partial_retry(
     args: argparse.Namespace,
     gpu_id: int,
     output_dir: Path,
+    npy_row_order: Optional[List[str]] = None,
 ) -> Dict[str, Dict[str, List[int]]]:
     print("\n" + "=" * 70)
     print("PHASE 2 (PARTIAL RETRY)")
@@ -612,6 +726,7 @@ def phase2_partial_retry(
             strict_shape=getattr(
                 args, "strict_overlap_matrix_shape", False
             ),
+            npy_row_order=npy_row_order,
         )
         print(
             f"[INFO] Live matrix from {existing_matrix_path} "
@@ -832,7 +947,19 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help=(
             "Require .npy shape to match len(CSV) exactly. Default: auto align .npy to "
-            "CSV (expand when adding models at end of CSV; crop when CSV is shorter)."
+            "CSV (expand when adding models at end of CSV; crop when CSV is shorter). "
+            "Ignored when --existing_overlap_npy_row_order is set (matrix is built by name)."
+        ),
+    )
+    p.add_argument(
+        "--existing_overlap_npy_row_order",
+        type=str,
+        default=None,
+        help=(
+            "Text file: one Hugging Face model id per line, same order as rows/columns of "
+            "the .npy in --existing_overlap_matrix. Use when the CSV is a subset or reorder "
+            "of that run (e.g. dropped models that had -1); without this, .npy crop/expand "
+            "assumes the CSV's leading rows match the .npy's leading indices. Ignored for .csv matrices."
         ),
     )
     return p.parse_args()
@@ -856,6 +983,7 @@ def main() -> None:
         print(f"[INFO] No existing file at {fp_path}; starting empty fingerprints dict.")
 
     models = load_model_list(args.csv_path)
+    overlap_npy_row_order = _overlap_npy_row_order_from_cli(args)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     setup_run_logging(output_dir)
@@ -939,6 +1067,7 @@ def main() -> None:
                 phase2_ns,
                 gpu_id,
                 output_dir,
+                npy_row_order=overlap_npy_row_order,
             )
             all_cached = all(m in caches for m in models)
             if all_cached:
@@ -958,6 +1087,7 @@ def main() -> None:
                 gpu_id,
                 output_dir,
                 ex,
+                npy_row_order=overlap_npy_row_order,
             )
     else:
         caches = phase2_compute_caches(
