@@ -26,6 +26,12 @@ Two modes (same CLI):
    When using --phase2_models, any target missing from fingerprints.json (or empty
    list) is auto-regenerated before Phase 2 unless you pre-filled the JSON.
 
+   --existing_overlap_matrix with a .npy smaller than the CSV (new models at end):
+   the matrix is expanded (new rows/cols -1, diagonal 1 for new indices). If the .npy
+   is larger than the CSV, the top-left block is cropped. Use --strict_overlap_matrix_shape
+   to forbid resize. Alignment is by row order: first n_old CSV ids must match the .npy
+   from the original run.
+
 Usage (export caches once):
  python run_pairwise_overlap_phase2_retry.py \\
         --csv_path models.csv \\
@@ -105,16 +111,64 @@ from utils import (
 )
 
 
-def load_overlap_matrix_from_path(path: Path, models: List[str]) -> np.ndarray:
+def _align_square_npy_to_model_count(
+    arr: np.ndarray,
+    n_csv: int,
+    path_label: str,
+) -> np.ndarray:
+    """
+    Resize a square .npy overlap matrix to ``n_csv`` models.
+
+    - Expand (n_old < n_csv): top-left block is the saved matrix; new rows/cols are -1 with diagonal 1 for new indices. **Requires** the first ``n_old`` rows of the
+      current CSV to be the same models in the same order as when ``path_label`` was saved;
+      **append new models only at the end** of the CSV.
+    - Shrink (n_old > n_csv): keep the top-left ``n_csv`` block. **Requires** the
+      current CSV lists the first ``n_old`` models in the same order, with some **removed
+      from the end** (or the block still aligns); otherwise overlaps will be wrong.
+    """
+    if arr.ndim != 2 or arr.shape[0] != arr.shape[1]:
+        raise ValueError(f"{path_label} must be square, got {arr.shape}")
+    n_old = int(arr.shape[0])
+    if n_old == n_csv:
+        return arr.astype(np.float64, copy=True)
+    if n_old < n_csv:
+        print(
+            f"[INFO] Expanding {path_label}: {n_old}x{n_old} -> {n_csv}x{n_csv}. "
+            f"Top-left is the old matrix; new rows/cols default to -1 (diag 1 for new). "
+            "Append new `model_id`s at the **end** of --csv_path only."
+        )
+        mat = np.full((n_csv, n_csv), -1.0)
+        mat[:n_old, :n_old] = arr.astype(np.float64)
+        for i in range(n_old, n_csv):
+            mat[i, i] = 1.0
+        return mat
+    print(
+        f"[WARNING] Cropping {path_label}: {n_old}x{n_old} -> {n_csv}x{n_csv} "
+        "(top-left block). CSV must list the same leading model order as the .npy; "
+        "typically you removed trailing models from the CSV."
+    )
+    return arr[:n_csv, :n_csv].astype(np.float64, copy=True)
+
+
+def load_overlap_matrix_from_path(
+    path: Path,
+    models: List[str],
+    *,
+    strict_shape: bool = False,
+) -> np.ndarray:
     if not path.is_file():
         raise FileNotFoundError(f"Matrix file not found: {path}")
     if path.suffix.lower() == ".npy":
         arr = np.load(path)
-        if arr.shape != (len(models), len(models)):
+        n = len(models)
+        if arr.shape == (n, n):
+            return arr.astype(np.float64, copy=True)
+        if strict_shape:
             raise ValueError(
-                f"{path} shape {arr.shape}, expected ({len(models)}, {len(models)})"
+                f"{path} shape {arr.shape}, expected ({n}, {n}). "
+                "Omit --strict_overlap_matrix_shape to auto expand/crop .npy to CSV size."
             )
-        return arr.astype(np.float64, copy=True)
+        return _align_square_npy_to_model_count(arr, n, str(path))
     if path.suffix.lower() == ".csv":
         with open(path, newline="", encoding="utf-8") as f:
             reader = csv.reader(f)
@@ -259,7 +313,7 @@ def ensure_fingerprints_for_targets(
         f"generating now (seed={cli_args.seed}): {missing}"
     )
     phase1_ns = build_phase2_namespace(cli_args)
-    return phase1_regenerate_fingerprints_for_models(
+    merged = phase1_regenerate_fingerprints_for_models(
         missing,
         all_fps,
         phase1_ns,
@@ -267,6 +321,17 @@ def ensure_fingerprints_for_targets(
         fingerprints_out,
         output_dir,
     )
+    still = [t for t in targets if t not in merged or len(merged.get(t, [])) == 0]
+    if still:
+        err_log = output_dir / "fingerprint_regenerate_errors.json"
+        raise SystemExit(
+            f"Phase 1 could not create fingerprints for: {still}\n"
+            f"Fix Hugging Face repo ids (see https://huggingface.co/models), use "
+            f"`hf auth login` or HF_TOKEN for gated/private models, or paste prompts "
+            f"into {fingerprints_out} manually.\n"
+            f"Details: {err_log if err_log.is_file() else '(no error file)'}"
+        )
+    return merged
 
 
 def _dedup_all_prompts(models: List[str], all_fps: Dict[str, List[str]]) -> List[str]:
@@ -396,7 +461,13 @@ def phase2_cross_targets_without_caches(
     live = not args.no_live_overlap_matrix
     if live:
         if existing_matrix_path and existing_matrix_path.is_file():
-            matrix = load_overlap_matrix_from_path(existing_matrix_path, models)
+            matrix = load_overlap_matrix_from_path(
+                existing_matrix_path,
+                models,
+                strict_shape=getattr(
+                    args, "strict_overlap_matrix_shape", False
+                ),
+            )
             print(f"[INFO] Seeded matrix from {existing_matrix_path}")
         else:
             matrix = np.full((len(models), len(models)), -1.0)
@@ -535,7 +606,13 @@ def phase2_partial_retry(
     live = not args.no_live_overlap_matrix
     overlap_matrix: Optional[np.ndarray] = None
     if live:
-        overlap_matrix = load_overlap_matrix_from_path(existing_matrix_path, models)
+        overlap_matrix = load_overlap_matrix_from_path(
+            existing_matrix_path,
+            models,
+            strict_shape=getattr(
+                args, "strict_overlap_matrix_shape", False
+            ),
+        )
         print(
             f"[INFO] Live matrix from {existing_matrix_path} "
             "(updates after each successful retry model)"
@@ -673,6 +750,9 @@ def build_phase2_namespace(args: argparse.Namespace) -> SimpleNamespace:
         num_fingerprints=args.num_fingerprints,
         fingerprint_length=args.fingerprint_length,
         k_bottom_sampling=args.k_bottom_sampling,
+        strict_overlap_matrix_shape=getattr(
+            args, "strict_overlap_matrix_shape", False
+        ),
     )
 
 
@@ -743,8 +823,16 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default=None,
         help=(
-            "Seed matrix (.npy/.csv) when merging partial results. "
-            "Optional for no-cache one-row mode (default: all -1 except updated row/column)."
+            "Seed matrix (.npy/.csv). For .npy, if size differs from CSV, default is to "
+            "expand (pad -1, new diag 1) or crop top-left; see --strict_overlap_matrix_shape."
+        ),
+    )
+    p.add_argument(
+        "--strict_overlap_matrix_shape",
+        action="store_true",
+        help=(
+            "Require .npy shape to match len(CSV) exactly. Default: auto align .npy to "
+            "CSV (expand when adding models at end of CSV; crop when CSV is shorter)."
         ),
     )
     return p.parse_args()
