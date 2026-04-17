@@ -23,6 +23,9 @@ Two modes (same CLI):
    merge into --fingerprints_file, then continue with Phase 2 when --phase2_models
    is also set (or stop after saving JSON if only regeneration was requested).
 
+   When using --phase2_models, any target missing from fingerprints.json (or empty
+   list) is auto-regenerated before Phase 2 unless you pre-filled the JSON.
+
 Usage (export caches once):
  python run_pairwise_overlap_phase2_retry.py \\
         --csv_path models.csv \\
@@ -234,6 +237,36 @@ def phase1_regenerate_fingerprints_for_models(
         f"({format_time(time.time() - t0)})"
     )
     return merged
+
+
+def ensure_fingerprints_for_targets(
+    targets: List[str],
+    all_fps: Dict[str, List[str]],
+    cli_args: argparse.Namespace,
+    gpu_id: int,
+    fingerprints_out: Path,
+    output_dir: Path,
+) -> Dict[str, List[str]]:
+    """
+    For any ``targets`` missing from ``all_fps`` or with an empty list, run Phase 1
+    and merge into ``all_fps`` / ``fingerprints_out``.
+    """
+    missing = [t for t in targets if t not in all_fps or len(all_fps.get(t, [])) == 0]
+    if not missing:
+        return all_fps
+    print(
+        f"\n[INFO] {len(missing)} model(s) in --phase2_models lack fingerprints in JSON; "
+        f"generating now (seed={cli_args.seed}): {missing}"
+    )
+    phase1_ns = build_phase2_namespace(cli_args)
+    return phase1_regenerate_fingerprints_for_models(
+        missing,
+        all_fps,
+        phase1_ns,
+        gpu_id,
+        fingerprints_out,
+        output_dir,
+    )
 
 
 def _dedup_all_prompts(models: List[str], all_fps: Dict[str, List[str]]) -> List[str]:
@@ -794,6 +827,15 @@ def main() -> None:
         targets = [s.strip() for s in args.phase2_models.split(",") if s.strip()]
         if not targets:
             raise SystemExit("Empty --phase2_models")
+
+        all_fps = ensure_fingerprints_for_targets(
+            targets,
+            all_fps,
+            args,
+            gpu_id,
+            fp_path,
+            output_dir,
+        )
 
         if args.bottomk_caches_file:
             if not args.existing_overlap_matrix:
