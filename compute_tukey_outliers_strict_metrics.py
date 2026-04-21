@@ -22,6 +22,34 @@ def load_lineage_parents(path: Path) -> dict[str, str | None]:
     return out
 
 
+def load_base_models_from_lineage(path: Path) -> dict[str, str]:
+    """model_name -> base_model_from_dataset (for rows where tukey CSV has no base_model column)."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    out: dict[str, str] = {}
+    for m in data.get("models", []):
+        name = m.get("model_name")
+        if not name:
+            continue
+        bm = m.get("base_model_from_dataset")
+        if bm is None:
+            s = ""
+        elif isinstance(bm, (list, tuple)):
+            s = ", ".join(str(x).strip() for x in bm if x is not None)
+        else:
+            s = str(bm).strip()
+        out[str(name)] = s
+    return out
+
+
+def resolve_base_model(
+    row: dict[str, str], focus: str, base_from_lineage: dict[str, str]
+) -> str:
+    v = (row.get("base_model") or "").strip()
+    if v:
+        return v
+    return base_from_lineage.get(focus, "")
+
+
 def load_cluster_map(path: Path) -> tuple[dict[str, frozenset[str]], dict[str, str]]:
     """model -> peers in same cluster; model -> cluster family label."""
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -84,6 +112,7 @@ def write_strict_csv(
     rows: list[dict[str, str]],
     u: set[str],
     parent_of: dict[str, str | None],
+    base_from_lineage: dict[str, str],
 ) -> tuple[float, float]:
     summary_rows: list[dict[str, object]] = []
     tot_pred = tot_tp = tot_gold = 0
@@ -116,7 +145,7 @@ def write_strict_csv(
         summary_rows.append(
             {
                 "model": focus,
-                "base_model": r.get("base_model", ""),
+                "base_model": resolve_base_model(r, focus, base_from_lineage),
                 "n_outliers": n_pred,
                 "n_strict_related_in_outliers": n_hit,
                 "n_strict_related_in_universe": n_gold,
@@ -162,6 +191,7 @@ def write_loose_csv(
     u: set[str],
     cluster_map: dict[str, frozenset[str]],
     family_of: dict[str, str],
+    base_from_lineage: dict[str, str],
 ) -> tuple[float, float]:
     summary_rows: list[dict[str, object]] = []
     tot_pred = tot_tp = tot_gold = 0
@@ -194,7 +224,7 @@ def write_loose_csv(
         summary_rows.append(
             {
                 "model": focus,
-                "base_model": r.get("base_model", ""),
+                "base_model": resolve_base_model(r, focus, base_from_lineage),
                 "cluster_family": family_of.get(focus, ""),
                 "n_outliers": n_pred,
                 "n_loosely_related_in_outliers": n_hit,
@@ -262,12 +292,15 @@ def main() -> None:
 
     parent_of = load_lineage_parents(args.lineage)
     cluster_map, family_of = load_cluster_map(args.lineage)
+    base_from_lineage = load_base_models_from_lineage(args.lineage)
     with args.tukey.open(encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
     u = universe_from_tukey_rows(rows)
 
-    sp, sr = write_strict_csv(strict_out, rows, u, parent_of)
-    lp, lr = write_loose_csv(loose_out, rows, u, cluster_map, family_of)
+    sp, sr = write_strict_csv(strict_out, rows, u, parent_of, base_from_lineage)
+    lp, lr = write_loose_csv(
+        loose_out, rows, u, cluster_map, family_of, base_from_lineage
+    )
 
     print(f"Wrote {strict_out}")
     print(f"  Micro precision (strict): {sp:.6f}; recall: {sr:.6f}")
