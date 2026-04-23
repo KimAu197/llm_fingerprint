@@ -1,0 +1,3 @@
+model_key,tokenizer_from,hf_repo,hf_filename
+qwen25_coder7b_instruct_unsloth_Q2K,Qwen/Qwen2.5-Coder-7B-Instruct,unsloth/Qwen2.5-Coder-7B-Instruct-GGUF,Qwen2.5-Coder-7B-Instruct-Q2_K.gguf
+qwen25_coder7b_instruct_unsloth_Q4KM,Qwen/Qwen2.5-Coder-7B-Instruct,unsloth/Qwen2.5-Coder-7B-Instruct-GGUF,Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf

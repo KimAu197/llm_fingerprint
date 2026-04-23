@@ -1,1 +1,3 @@
 huggingface_hub>=0.20.0
+# Optional: GGUF / llama.cpp pairwise script (llm_fingerprint/watermarking/test/run_pairwise_overlap_matrix_gguf.py)
+llama-cpp-python>=0.2.0
