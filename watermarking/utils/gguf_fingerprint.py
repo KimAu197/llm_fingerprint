@@ -183,10 +183,12 @@ def check_tokenizer_vocab_vs_gguf(
     """
     n_llm = _llm_n_vocab(llm)
     tvs = int(getattr(tokenizer, "vocab_size", n_llm))
-    if tvs != n_llm:
+    # Qwen2.x: tokenizer often reports 151643 while the LM head is 152064; that is
+    # expected. Only flag tokenizer claiming *more* ids than the file provides.
+    if tvs > n_llm:
         warnings.warn(
-            f"Tokenizer vocab_size ({tvs}) != llama n_vocab ({n_llm}). "
-            "For correct overlap, `tokenizer_from` should match the HF source of this GGUF.",
+            f"Tokenizer vocab_size ({tvs}) > llama n_vocab ({n_llm}): check that "
+            "`tokenizer_from` matches the GGUF conversion source.",
             stacklevel=2,
         )
     toks = _encode_prompt(tokenizer, extra_check_text)

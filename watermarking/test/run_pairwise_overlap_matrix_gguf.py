@@ -26,10 +26,18 @@ Optional:
 
 Requires: llama-cpp-python, huggingface_hub (``pip install llama-cpp-python huggingface_hub``)
 
-Usage (Hub download, no local file):
-  python run_pairwise_overlap_matrix_gguf.py \\
-    --csv_path data/csv_unsloth_qwen2.5_coder7b_instruct_gguf_sample.csv \\
+From the ``watermarking`` directory, use ``test/data/...`` for the CSV; from
+``watermarking/test/``, use ``data/...``. Full pipeline: omit ``--fingerprints_file`` so
+Phase 1 runs. If you had loaded an empty JSON via ``--fingerprints_file`` or
+Phase 1 failed earlier, use ``--regenerate_fingerprints`` to force Phase 1.
+
+Usage (Hub download, full run):
+  python test/run_pairwise_overlap_matrix_gguf.py \\
+    --csv_path test/data/csv_unsloth_qwen2.5_coder7b_instruct_gguf_sample.csv \\
     --gpu_ids 0 --output_dir ./out_gguf
+  cd test  # and then:
+  python run_pairwise_overlap_matrix_gguf.py \\
+    --csv_path data/csv_unsloth_qwen2.5_coder7b_instruct_gguf_sample.csv --output_dir ./out_gguf
 """
 from __future__ import annotations
 
@@ -175,6 +183,58 @@ def _gguf_post_unload_gc() -> None:
             torch.cuda.empty_cache()
     except Exception:
         pass
+
+
+def _count_fingerprint_prompts(
+    models: List[str], all_fps: Dict[str, List[str]]
+) -> int:
+    n = 0
+    for m in models:
+        fps = all_fps.get(m) or []
+        n += len(fps)
+    return n
+
+
+def _check_fingerprints_usable(
+    models: List[str],
+    all_fps: Dict[str, List[str]],
+    *,
+    from_phase1: bool,
+    output_dir: Path,
+    finger_source: str,
+) -> None:
+    """Abort before Phase 2 if there is nothing to score; print hints on key mismatch."""
+    n_prompts = _count_fingerprint_prompts(models, all_fps)
+    if n_prompts > 0:
+        missing = [m for m in models if m not in all_fps or not all_fps.get(m)]
+        if missing:
+            _LOG.warning(
+                "No fingerprint entries for model(s) %s (others OK). Key mismatch: JSON "
+                "keys are %s — expected %s. Using partial matrix.",
+                missing,
+                list(all_fps.keys())[:20],
+                models,
+            )
+            print(
+                f"\n[WARNING] Missing fingerprints for: {missing}. "
+                f"JSON keys: {list(all_fps.keys())}. Expected model_key list: {models}."
+            )
+        return
+
+    if from_phase1:
+        raise SystemExit(
+            f"\nPhase 1 did not produce any usable fingerprints. "
+            f"See: {output_dir / 'fingerprint_errors.json'} and "
+            f"{output_dir / 'pairwise_overlap_gguf.log'}\n"
+        )
+    raise SystemExit(
+        f"\nNo usable fingerprints to run Phase 2. Source: {finger_source}\n"
+        f"  Your CSV model_key names: {models}\n"
+        f"  This JSON has keys: {list(all_fps.keys())}\n\n"
+        f"  To generate fingerprints from scratch, run WITHOUT --fingerprints_file, and either:\n"
+        f"    (a)  python test/run_pairwise_overlap_matrix_gguf.py --csv_path ... --output_dir NEW_DIR\n"
+        f"    (b)  or add:  --regenerate_fingerprints  (re-run Phase 1; ignores old JSON)\n"
+    )
 
 
 def setup_gguf_run_logging(output_dir: Path) -> None:
@@ -515,15 +575,33 @@ def run_experiment(args: argparse.Namespace) -> None:
     print(f"Bottom-k vocab:  {args.bottom_k_vocab}")
     print(f"n_ctx / n_batch: {args.n_ctx} / {args.n_batch}  n_gpu_layers: {args.n_gpu_layers}")
     print(f"Output:          {output_dir}")
-    if args.fingerprints_file:
-        print(f"Fingerprints:    {args.fingerprints_file} (skip Phase 1)")
+    regen = getattr(args, "regenerate_fingerprints", False)
+    load_fp = bool(args.fingerprints_file) and not regen
+    if load_fp:
+        print(f"Phase 1:         SKIP (load {args.fingerprints_file})")
+    elif regen and args.fingerprints_file:
+        print(
+            "Phase 1:         RUN ( --regenerate_fingerprints: ignoring --fingerprints_file )"
+        )
+    else:
+        print("Phase 1:         RUN (write fingerprints to output_dir/fingerprints.json)")
     print()
 
-    if args.fingerprints_file:
+    if load_fp:
         with open(args.fingerprints_file, "r", encoding="utf-8") as f:
             all_fps = json.load(f)
+        fp_src: str = str(args.fingerprints_file)
     else:
         all_fps = phase1_generate_fingerprints(model_rows, args, gpu_id, output_dir)
+        fp_src = "phase1"
+
+    _check_fingerprints_usable(
+        models,
+        all_fps,
+        from_phase1=not load_fp,
+        output_dir=output_dir,
+        finger_source=fp_src,
+    )
 
     caches = phase2_compute_caches(model_rows, all_fps, args, gpu_id, output_dir)
     phase3_build_matrix(models, all_fps, caches, output_dir)
@@ -580,6 +658,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--gpu_ids", type=str, default="0", help="Sets CUDA_VISIBLE_DEVICES to first id")
     p.add_argument(
         "--fingerprints_file", type=str, default=None, help="Skip Phase 1; load this JSON"
+    )
+    p.add_argument(
+        "--regenerate_fingerprints",
+        action="store_true",
+        help="Always run Phase 1 (ignores --fingerprints_file). Use to fix empty/wrong fingerprints.json",
     )
     p.add_argument(
         "--batch_size_bottomk", type=int, default=1,
