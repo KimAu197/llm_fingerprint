@@ -287,14 +287,23 @@ def _load_llama(gguf_path: str, args: argparse.Namespace):
     if not os.path.isfile(gguf_path):
         raise FileNotFoundError(f"GGUF not found: {gguf_path}")
 
-    return Llama(
+    ngl = int(args.n_gpu_layers)
+    v = bool(getattr(args, "llama_verbose", False))
+    # n_gpu_layers=-1 => offload all layers; only effective if this wheel was
+    # built with CUDA (Linux) or Metal (macOS). CPU-only wheels ignore GPU.
+    llm = Llama(
         model_path=gguf_path,
         n_ctx=int(args.n_ctx),
         n_batch=int(args.n_batch),
         logits_all=True,
-        n_gpu_layers=int(args.n_gpu_layers),
-        verbose=False,
+        n_gpu_layers=ngl,
+        verbose=v,
     )
+    print(
+        f"  [llama.cpp] n_gpu_layers={ngl}  verbose={v}  |  "
+        f"GPU offload only if llama-cpp-python is a CUDA/Metal build; else CPU (very slow)"
+    )
+    return llm
 
 
 # ---------------------------------------------------------------------------
@@ -681,7 +690,12 @@ def parse_args() -> argparse.Namespace:
         "--n_gpu_layers",
         type=int,
         default=-1,
-        help="llama.cpp: GPU layers (-1 = all, 0 = CPU only)",
+        help="llama.cpp: layers on GPU (-1 = all, 0 = force CPU). Needs CUDA/Metal wheel.",
+    )
+    p.add_argument(
+        "--llama_verbose",
+        action="store_true",
+        help="Print llama.cpp backend / device info at model load (see stderr).",
     )
     p.add_argument(
         "--cuda_device_reset_each_model", action="store_true",
