@@ -300,8 +300,11 @@ def _load_llama(gguf_path: str, args: argparse.Namespace):
         verbose=v,
     )
     print(
-        f"  [llama.cpp] n_gpu_layers={ngl}  verbose={v}  |  "
-        f"GPU offload only if llama-cpp-python is a CUDA/Metal build; else CPU (very slow)"
+        f"  [llama.cpp] n_gpu_layers={ngl}  verbose={v}\n"
+        f"  If nvidia-smi shows **no VRAM change** while this runs, your wheel is "
+        f"CPU-only; n_gpu_layers is ignored. Install a CUDA build of "
+        f"llama-cpp-python (Linux+NVIDIA: CMAKE_ARGS=-DGGML_CUDA=on, match CUDA). "
+        f"See: https://github.com/abetlen/llama-cpp-python#install-with-cuda"
     )
     return llm
 

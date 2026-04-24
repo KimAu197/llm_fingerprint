@@ -4,10 +4,11 @@ GGUF (llama.cpp) helpers for the same bottom-k / fingerprint logic as the HF pat
 - Token / decode uses HuggingFace ``AutoTokenizer`` from a model id the GGUF
   was converted from (``tokenizer_from``) so **token id space** matches the
   source checkpoint when the conversion is consistent.
-- Logits are taken from ``llama_cpp.Llama`` with ``logits_all=True`` after
-  a full ``eval`` on the current token list (re-forward each step, matching the
-  HF `sample_fingerprint_prompt` call pattern; causal LM is equivalent to
-  incremental forward with cache, but we re-eval the full sequence for clarity).
+- Fingerprint **sampling** uses **incremental** ``eval`` (one new token at a time) so
+  the KV cache is kept; that matches the causal model and is far faster than
+  re-evaluating the full prefix every step.
+- **Bottom-k on fixed prompts** still does ``reset`` + one full ``eval`` of the
+  string (each prompt is independent in Phase 2).
 
 Requires: ``llama_cpp`` (llama-cpp-python) with a backend suitable for the GGUF
 (e.g. Metal/CUDA/CPU as built into the wheel).
@@ -72,6 +73,18 @@ def eval_full_sequence_last_logits(llm, token_ids: Sequence[int]) -> np.ndarray:
     return row
 
 
+def _last_pos_logits_array(llm) -> np.ndarray:
+    """Logits for the *next* token (last context position) without reset."""
+    n = int(llm.n_tokens)
+    if n < 1:
+        raise RuntimeError("llm has no tokens after eval")
+    nvc = _llm_n_vocab(llm)
+    row = np.array(llm.scores[n - 1, :], copy=True, dtype=np.float32)
+    if row.size != nvc:
+        raise RuntimeError(f"logits size {row.size} != n_vocab {nvc}")
+    return row
+
+
 def _mask_disallowed_bottomk(probs: np.ndarray, allowed: List[int]) -> np.ndarray:
     m = np.ones(probs.shape[0], dtype=bool)
     m[allowed] = False
@@ -101,10 +114,15 @@ def sample_fingerprint_prompt_gguf(
             )
 
     prefix_ids = random.choices(allowed, k=l_random_prefix)
-    prompt_ids: List[int] = list(prefix_ids)
+    prompt_ids: List[int] = [int(t) for t in prefix_ids]
 
+    llm.reset()
+    if not prompt_ids:
+        raise ValueError("empty prefix in sample_fingerprint_prompt_gguf")
+    llm.eval(prompt_ids)
+    # Incremental: O(total_len) eval steps instead of O(total_len^2) full re-forward.
     while len(prompt_ids) < total_len:
-        logits = eval_full_sequence_last_logits(llm, prompt_ids)
+        logits = _last_pos_logits_array(llm)
         probs = _softmax_np(logits)
         if len(allowed) < int(tokenizer.vocab_size):
             masked = _mask_disallowed_bottomk(probs, allowed)
@@ -119,6 +137,7 @@ def sample_fingerprint_prompt_gguf(
         if next_id < 0 or next_id >= n_vm:
             raise ValueError(f"next token id {next_id} not in [0, {n_vm})")
         prompt_ids.append(next_id)
+        llm.eval([next_id])
 
     return tokenizer.decode(prompt_ids, skip_special_tokens=True)
 
