@@ -7,10 +7,11 @@ Two modes (same CLI):
    Same as run_pairwise_overlap_matrix Phase 2 + Phase 3. Optionally write
    --save_bottomk_caches so you can retry individual models later.
 
-2) Partial Phase 2 (when --phase2_models is set)
+2) Partial Phase 2 (when --phase2_models or --phase2_models_csv is set)
    With --bottomk_caches_file: load other models' caches from disk, re-run GPU only
    for listed ids (fast), merge into matrix.
-   Without --bottomk_caches_file: one or more comma-separated ids in --phase2_models.
+   Without --bottomk_caches_file: one or more comma-separated ids in --phase2_models,
+   or a CSV with a ``model_id`` column in --phase2_models_csv.
    For each target, bottom-k is computed once (caches kept in RAM); for every other
    model j, load j once and refresh all targets' rows/columns vs j; then fill
    target-vs-target cells. Same overlap rules as the main script. No cache JSON.
@@ -35,6 +36,9 @@ Two modes (same CLI):
    to reindex by name. With a labeled .csv, every model_id in --csv_path is looked up in the
    seed matrix and the working matrix is reformed to CSV order; ids only in the CSV (new
    models) keep off-diagonal -1 until Phase2 computes them.
+   When --phase2_models_csv is used with a labeled existing overlap .csv, the model list is
+   automatically expanded to: old matrix row/column ids first, then --csv_path ids, then
+   phase2 target ids. This lets a small "new models" CSV append to an old matrix.
 
 Usage (export caches once):
  python run_pairwise_overlap_phase2_retry.py \\
@@ -81,6 +85,7 @@ import argparse
 import csv
 import itertools
 import json
+import multiprocessing as mp
 import sys
 import time
 import traceback
@@ -113,6 +118,15 @@ from utils import (
     set_seed,
     unload_hf_model,
 )
+from utils.phase2_parallel import (
+    gpu_ids_from_cli as _gpu_ids_from_cli,
+    parallel_cross_worker as _parallel_cross_worker,
+    partition_models_by_gpu as _partition_models_by_gpu,
+    phase2_args_for_worker as _phase2_args_for_worker,
+)
+
+PHASE2_PROGRESS_NAME = "phase2_progress.json"
+PHASE2_STATUS_NAME = "phase2_cache_status.json"
 
 
 def _load_model_ids_one_per_line(path: Path) -> List[str]:
@@ -126,6 +140,80 @@ def _load_model_ids_one_per_line(path: Path) -> List[str]:
             if s:
                 out.append(s)
     return out
+
+
+def _dedupe_preserve_order(items: List[str]) -> List[str]:
+    seen: Set[str] = set()
+    out: List[str] = []
+    for item in items:
+        if item and item not in seen:
+            seen.add(item)
+            out.append(item)
+    return out
+
+
+def _load_model_ids_from_csv(path: Path) -> List[str]:
+    """Load a CSV with header ``model_id`` and return non-empty ids."""
+    if not path.is_file():
+        raise FileNotFoundError(f"Model CSV not found: {path}")
+    rows = load_model_list(str(path))
+    if not rows:
+        raise ValueError(f"No model_id rows found in {path}")
+    return rows
+
+
+def _phase2_targets_from_cli(args: argparse.Namespace) -> List[str]:
+    """Merge comma-separated --phase2_models and --phase2_models_csv targets."""
+    targets: List[str] = []
+    raw = getattr(args, "phase2_models", None)
+    if raw and str(raw).strip():
+        targets.extend([s.strip() for s in str(raw).split(",") if s.strip()])
+
+    csv_raw = getattr(args, "phase2_models_csv", None)
+    if csv_raw and str(csv_raw).strip():
+        for one_path in [s.strip() for s in str(csv_raw).split(",") if s.strip()]:
+            targets.extend(_load_model_ids_from_csv(Path(one_path)))
+
+    return _dedupe_preserve_order(targets)
+
+
+def _load_labeled_overlap_model_order(path: Path) -> List[str]:
+    """Read row/column labels from a labeled overlap CSV."""
+    if not path.is_file() or path.suffix.lower() != ".csv":
+        return []
+    with open(path, newline="", encoding="utf-8") as f:
+        reader = csv.reader(f)
+        header = next(reader)
+        col_labels = [m for m in header[1:] if m]
+        row_labels = [row[0] for row in reader if row and row[0]]
+    if col_labels and row_labels and col_labels != row_labels:
+        print(
+            "[WARNING] existing overlap CSV row labels and column labels differ; "
+            "using column labels first, then row-only labels."
+        )
+    return _dedupe_preserve_order(col_labels + row_labels)
+
+
+def _models_with_existing_labeled_matrix_seed(
+    csv_models: List[str],
+    target_models: List[str],
+    existing_overlap_matrix: Optional[str],
+    use_phase2_models_csv: bool,
+) -> List[str]:
+    """
+    If targets come from a small CSV and the seed matrix is labeled CSV, prepend
+    the old matrix ids so users can append new models without hand-building a
+    combined CSV.
+    """
+    seed_models: List[str] = []
+    if use_phase2_models_csv and existing_overlap_matrix:
+        seed_models = _load_labeled_overlap_model_order(Path(existing_overlap_matrix))
+        if seed_models:
+            print(
+                f"[INFO] Auto-expanded CSV model list with {len(seed_models)} "
+                "model id(s) from labeled --existing_overlap_matrix."
+            )
+    return _dedupe_preserve_order(seed_models + csv_models + target_models)
 
 
 def _square_npy_to_models_by_row_order(
@@ -530,6 +618,162 @@ def _run_one_model_bottomk(
         )
 
 
+def phase2_cross_targets_without_caches_parallel(
+    models: List[str],
+    all_fps: Dict[str, List[str]],
+    target_models: List[str],
+    args: argparse.Namespace,
+    gpu_ids: List[int],
+    output_dir: Path,
+    existing_matrix_path: Optional[Path],
+    npy_row_order: Optional[List[str]] = None,
+) -> None:
+    print("\n" + "=" * 70)
+    print("PHASE 2 (MULTI TARGET, NO STORED CACHES, MULTI-GPU)")
+    print("=" * 70)
+
+    targets = _dedupe_preserve_order(target_models)
+    for target in targets:
+        if target not in models:
+            raise SystemExit(f"target not in CSV: {target}")
+        if target not in all_fps:
+            raise SystemExit(f"target has no fingerprints in JSON: {target}")
+
+    all_prompts = _dedup_all_prompts(models, all_fps)
+    print(f"[INFO] Unique prompts (all models): {len(all_prompts)}")
+    print(f"[INFO] Target model(s) ({len(targets)}): {targets}")
+    print(f"[INFO] GPU workers: {gpu_ids}")
+
+    target_idx = {target: models.index(target) for target in targets}
+    target_set = set(targets)
+    live = not args.no_live_overlap_matrix
+    if live and existing_matrix_path and existing_matrix_path.is_file():
+        matrix = load_overlap_matrix_from_path(
+            existing_matrix_path,
+            models,
+            strict_shape=getattr(args, "strict_overlap_matrix_shape", False),
+            npy_row_order=npy_row_order,
+        )
+        print(f"[INFO] Seeded matrix from {existing_matrix_path}")
+    else:
+        matrix = np.full((len(models), len(models)), -1.0)
+        if live:
+            print("[INFO] Starting from empty matrix (-1); pass --existing_overlap_matrix to merge")
+
+    # Fill target-target cells once in the main process. Workers recompute target
+    # caches locally so large bottom-k caches never cross process boundaries.
+    pinned_main: Dict[str, Dict[str, List[int]]] = {}
+    main_gpu = gpu_ids[0] if gpu_ids else 0
+    print(f"\n--- Target vs target on cuda:{main_gpu} ---")
+    for target in targets:
+        pinned_main[target] = _run_one_model_bottomk(target, all_prompts, args, main_gpu)
+        matrix[target_idx[target], target_idx[target]] = 1.0
+    for t1, t2 in itertools.combinations(targets, 2):
+        i1, i2 = target_idx[t1], target_idx[t2]
+        matrix[i1, i2] = _matrix_cell_mi_mj(
+            t1, t2, all_fps, pinned_main[t1], pinned_main[t2]
+        )
+        matrix[i2, i1] = _matrix_cell_mi_mj(
+            t2, t1, all_fps, pinned_main[t2], pinned_main[t1]
+        )
+    if live:
+        save_matrix_artifacts(matrix, models, output_dir, sync=True)
+
+    others = [model_id for model_id in models if model_id not in target_set]
+    partitions = _partition_models_by_gpu(others, gpu_ids)
+    print(f"\n--- Cross {len(others)} non-target model(s) across {len(partitions)} GPU worker(s) ---")
+    for gpu_id, chunk in partitions:
+        print(f"  cuda:{gpu_id}: {len(chunk)} model(s)")
+
+    ctx = mp.get_context("spawn")
+    queue = ctx.Queue()
+    worker_args = _phase2_args_for_worker(args)
+    processes = []
+    for worker_id, (gpu_id, chunk) in enumerate(partitions):
+        proc = ctx.Process(
+            target=_parallel_cross_worker,
+            args=(
+                worker_id,
+                gpu_id,
+                chunk,
+                targets,
+                all_prompts,
+                all_fps,
+                worker_args,
+                queue,
+            ),
+        )
+        proc.start()
+        processes.append(proc)
+
+    done_workers = 0
+    completed_models = 0
+    errors: Dict[str, str] = {}
+    t0 = time.time()
+    times: List[float] = []
+    while done_workers < len(processes):
+        msg = queue.get()
+        msg_type = msg.get("type")
+        if msg_type == "status":
+            print(f"[worker {msg['worker_id']} cuda:{msg['gpu_id']}] {msg['message']}")
+        elif msg_type == "cells":
+            mt = time.time()
+            model_id = msg["model_id"]
+            ij = models.index(model_id)
+            for target, _, val_tj, val_jt in msg["cells"]:
+                it = target_idx[target]
+                matrix[it, ij] = val_tj
+                matrix[ij, it] = val_jt
+            completed_models += 1
+            times.append(time.time() - mt)
+            if live:
+                save_matrix_artifacts(matrix, models, output_dir, sync=True)
+                with open(output_dir / PHASE2_PROGRESS_NAME, "w", encoding="utf-8") as pf:
+                    json.dump(
+                        {
+                            "mode": "cross_targets_no_caches_parallel",
+                            "targets": targets,
+                            "last_cross_with": model_id,
+                            "completed_non_targets": completed_models,
+                            "num_non_targets": len(others),
+                            "gpu_ids": gpu_ids,
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                        pf,
+                        indent=2,
+                    )
+            print_progress(completed_models - 1, len(others), times, t0)
+        elif msg_type == "error":
+            errors[msg["model_id"]] = msg["traceback"]
+            print(f"[worker {msg['worker_id']} cuda:{msg['gpu_id']}] ERROR {msg['model_id']}")
+            print(msg["traceback"])
+        elif msg_type == "done":
+            done_workers += 1
+            print(f"[worker {msg['worker_id']} cuda:{msg['gpu_id']}] done")
+
+    for proc in processes:
+        proc.join()
+        if proc.exitcode not in (0, None):
+            print(f"[WARNING] Worker pid={proc.pid} exited with code {proc.exitcode}")
+
+    save_matrix_artifacts(matrix, models, output_dir, sync=True)
+    status_path = output_dir / PHASE2_STATUS_NAME
+    with open(status_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "mode": "cross_targets_no_caches_parallel",
+                "targets": targets,
+                "num_models": len(models),
+                "num_prompts": len(all_prompts),
+                "gpu_ids": gpu_ids,
+                "errors": errors,
+            },
+            f,
+            indent=2,
+        )
+    print(f"\n[INFO] Wrote {status_path.name}. Final matrix -> {output_dir / 'overlap_matrix.csv'}")
+
+
 def phase2_cross_targets_without_caches(
     models: List[str],
     all_fps: Dict[str, List[str]],
@@ -613,7 +857,7 @@ def phase2_cross_targets_without_caches(
                 matrix[ij, it] = _matrix_cell_mi_mj(mj, t, all_fps, cache_j, pinned[t])
             if live:
                 save_matrix_artifacts(matrix, models, output_dir, sync=True)
-                with open(output_dir / "phase2_progress.json", "w", encoding="utf-8") as pf:
+                with open(output_dir / PHASE2_PROGRESS_NAME, "w", encoding="utf-8") as pf:
                     json.dump(
                         {
                             "mode": "cross_targets_no_caches",
@@ -651,7 +895,7 @@ def phase2_cross_targets_without_caches(
     if not live:
         print("[INFO] Wrote overlap matrix (no intermediate checkpoints; --no_live_overlap_matrix)")
 
-    status_path = output_dir / "phase2_cache_status.json"
+    status_path = output_dir / PHASE2_STATUS_NAME
     with open(status_path, "w", encoding="utf-8") as f:
         json.dump(
             {
@@ -774,7 +1018,7 @@ def phase2_partial_retry(
                     overlap_matrix, models, all_fps, caches, name
                 )
                 save_matrix_artifacts(overlap_matrix, models, output_dir, sync=True)
-                prog = output_dir / "phase2_progress.json"
+                prog = output_dir / PHASE2_PROGRESS_NAME
                 with open(prog, "w", encoding="utf-8") as pf:
                     json.dump(
                         {
@@ -825,7 +1069,7 @@ def phase2_partial_retry(
         times.append(time.time() - mt)
         print_progress(i, len(models), times, t0)
 
-    status_path = output_dir / "phase2_cache_status.json"
+    status_path = output_dir / PHASE2_STATUS_NAME
     with open(status_path, "w", encoding="utf-8") as f:
         json.dump(
             {
@@ -925,6 +1169,17 @@ def parse_args() -> argparse.Namespace:
         help="Comma-separated model ids for partial retry only. Omit for full Phase 2.",
     )
     p.add_argument(
+        "--phase2_models_csv",
+        type=str,
+        default=None,
+        help=(
+            "CSV path(s), comma-separated if multiple, with header model_id. "
+            "These ids are merged with --phase2_models and used as partial Phase 2 targets. "
+            "When paired with labeled --existing_overlap_matrix .csv, old matrix ids are "
+            "automatically prepended to the working model list."
+        ),
+    )
+    p.add_argument(
         "--bottomk_caches_file",
         type=str,
         default=None,
@@ -972,7 +1227,8 @@ def main() -> None:
         f"[INFO] RNG seed = {args.seed} "
         "(use original experiment_metadata.json seed for strictly comparable new fingerprints)"
     )
-    gpu_id = int(args.gpu_ids.split(",")[0]) if args.gpu_ids else 0
+    gpu_ids = _gpu_ids_from_cli(args)
+    gpu_id = gpu_ids[0]
 
     fp_path = Path(args.fingerprints_file)
     if fp_path.is_file():
@@ -982,7 +1238,15 @@ def main() -> None:
         all_fps = {}
         print(f"[INFO] No existing file at {fp_path}; starting empty fingerprints dict.")
 
-    models = load_model_list(args.csv_path)
+    targets = _phase2_targets_from_cli(args)
+    models = _models_with_existing_labeled_matrix_seed(
+        csv_models=load_model_list(args.csv_path),
+        target_models=targets,
+        existing_overlap_matrix=args.existing_overlap_matrix,
+        use_phase2_models_csv=bool(
+            args.phase2_models_csv and str(args.phase2_models_csv).strip()
+        ),
+    )
     overlap_npy_row_order = _overlap_npy_row_order_from_cli(args)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1013,7 +1277,7 @@ def main() -> None:
             output_dir,
         )
 
-    partial = bool(args.phase2_models and args.phase2_models.strip())
+    partial = bool(targets)
     if regen_ids and not partial:
         meta = {
             "script": "run_pairwise_overlap_phase2_retry.py",
@@ -1032,17 +1296,15 @@ def main() -> None:
         )
         return
 
-    if not partial:
-        if not all_fps:
-            raise SystemExit(
-                "Full Phase 2 needs a non-empty fingerprints.json "
-                "(use --regenerate_fingerprints_models or provide an existing file)."
-            )
+    if not partial and not all_fps:
+        raise SystemExit(
+            "Full Phase 2 needs a non-empty fingerprints.json "
+            "(use --regenerate_fingerprints_models or provide an existing file)."
+        )
 
     if partial:
-        targets = [s.strip() for s in args.phase2_models.split(",") if s.strip()]
         if not targets:
-            raise SystemExit("Empty --phase2_models")
+            raise SystemExit("Empty --phase2_models / --phase2_models_csv")
 
         all_fps = ensure_fingerprints_for_targets(
             targets,
@@ -1079,16 +1341,28 @@ def main() -> None:
                 )
         else:
             ex = Path(args.existing_overlap_matrix) if args.existing_overlap_matrix else None
-            phase2_cross_targets_without_caches(
-                models,
-                all_fps,
-                targets,
-                phase2_ns,
-                gpu_id,
-                output_dir,
-                ex,
-                npy_row_order=overlap_npy_row_order,
-            )
+            if len(gpu_ids) > 1:
+                phase2_cross_targets_without_caches_parallel(
+                    models,
+                    all_fps,
+                    targets,
+                    phase2_ns,
+                    gpu_ids,
+                    output_dir,
+                    ex,
+                    npy_row_order=overlap_npy_row_order,
+                )
+            else:
+                phase2_cross_targets_without_caches(
+                    models,
+                    all_fps,
+                    targets,
+                    phase2_ns,
+                    gpu_id,
+                    output_dir,
+                    ex,
+                    npy_row_order=overlap_npy_row_order,
+                )
     else:
         caches = phase2_compute_caches(
             models, all_fps, phase2_ns, gpu_id, output_dir

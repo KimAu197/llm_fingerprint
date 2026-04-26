@@ -33,4 +33,10 @@ from .bottomk_processor import (
     compute_bottomk_vocab_for_model,
     compute_bottomk_vocab_batch,
 )
+from .phase2_parallel import (
+    gpu_ids_from_cli,
+    partition_models_by_gpu,
+    phase2_args_for_worker,
+    parallel_cross_worker,
+)
 
