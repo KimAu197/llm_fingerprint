@@ -100,6 +100,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from run_pairwise_overlap_matrix import (
     _compute_all_bottomk_for_model,
+    _fourbit_for_model_id,
     _maybe_reset_cuda_after_model,
     _RUN_LOG,
     format_time,
@@ -428,7 +429,9 @@ def phase1_regenerate_fingerprints_for_models(
         last_exc: Optional[BaseException] = None
 
         try:
-            model, tok, _ = load_hf_model(name, device_map={"": device})
+            model, tok, _ = load_hf_model(
+                name, fourbit=_fourbit_for_model_id(name, args), device_map={"": device}
+            )
             fps: List[str] = []
             for fi in range(args.num_fingerprints):
                 fp = sample_fingerprint_prompt(
@@ -579,7 +582,9 @@ def _run_one_model_bottomk(
     cleanup_failed = False
     last_exc: Optional[BaseException] = None
     try:
-        model, tok, _ = load_hf_model(name, device_map={"": device})
+        model, tok, _ = load_hf_model(
+            name, fourbit=_fourbit_for_model_id(name, args), device_map={"": device}
+        )
         bottomk_lists = _compute_all_bottomk_for_model(
             model,
             tok,
@@ -1001,7 +1006,9 @@ def phase2_partial_retry(
         last_exc: Optional[BaseException] = None
 
         try:
-            model, tok, _ = load_hf_model(name, device_map={"": device})
+            model, tok, _ = load_hf_model(
+                name, fourbit=_fourbit_for_model_id(name, args), device_map={"": device}
+            )
             bottomk_lists = _compute_all_bottomk_for_model(
                 model,
                 tok,
@@ -1112,6 +1119,7 @@ def build_phase2_namespace(args: argparse.Namespace) -> SimpleNamespace:
         strict_overlap_matrix_shape=getattr(
             args, "strict_overlap_matrix_shape", False
         ),
+        fourbit=getattr(args, "fourbit", False),
     )
 
 
@@ -1156,6 +1164,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--no_cuda_device_reset_on_error", action="store_true")
     p.add_argument("--cuda_device_reset_after_oom", action="store_true")
     p.add_argument("--no_live_overlap_matrix", action="store_true")
+    p.add_argument(
+        "--fourbit",
+        action="store_true",
+        help="Load every model in 4-bit (BitsAndBytes). Default: only ids containing bnb-4bit use 4-bit.",
+    )
     p.add_argument(
         "--save_bottomk_caches",
         type=str,
