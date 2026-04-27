@@ -169,8 +169,9 @@ def compute_bottomk_vocab_for_prompts_gguf(
         k_eff = min(k, n_vm)
         if k_eff < 1:
             raise ValueError("k is 0 or n_vocab is 0")
-        order = np.argsort(logits)  # ascending: lowest logits first
-        out.append([int(x) for x in order[:k_eff]])
+        # Only the bottom-k set is used for overlap; avoid a full vocab sort.
+        bottomk = np.argpartition(logits, k_eff - 1)[:k_eff]
+        out.append([int(x) for x in bottomk])
     return out
 
 
