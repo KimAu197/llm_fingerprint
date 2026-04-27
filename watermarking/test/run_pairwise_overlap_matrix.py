@@ -53,6 +53,13 @@ from utils import (
 )
 
 
+def _fourbit_for_model_id(model_id: str, args) -> bool:
+    """4-bit (BitsAndBytes) for Unsloth bnb-4bit repos, or all models if --fourbit."""
+    if getattr(args, "fourbit", False):
+        return True
+    return "bnb-4bit" in model_id
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -292,7 +299,9 @@ def phase1_generate_fingerprints(
         last_exc: Optional[BaseException] = None
 
         try:
-            model, tok, _ = load_hf_model(name, device_map={"": device})
+            model, tok, _ = load_hf_model(
+                name, fourbit=_fourbit_for_model_id(name, args), device_map={"": device}
+            )
 
             fps = []
             for fi in range(args.num_fingerprints):
@@ -455,7 +464,9 @@ def phase2_compute_caches(
         last_exc: Optional[BaseException] = None
         
         try:
-            model, tok, _ = load_hf_model(name, device_map={"": device})
+            model, tok, _ = load_hf_model(
+                name, fourbit=_fourbit_for_model_id(name, args), device_map={"": device}
+            )
 
             bottomk_lists = _compute_all_bottomk_for_model(
                 model, tok, all_prompts, args.bottom_k_vocab, device, batch_size,
@@ -726,6 +737,11 @@ def parse_args() -> argparse.Namespace:
         "--no_live_overlap_matrix",
         action="store_true",
         help="Disable writing overlap_matrix.csv/.npy after each Phase-2 success (default: live checkpoints on)",
+    )
+    p.add_argument(
+        "--fourbit",
+        action="store_true",
+        help="Load every model in 4-bit (BitsAndBytes). Default: only ids containing bnb-4bit use 4-bit.",
     )
     return p.parse_args()
 
