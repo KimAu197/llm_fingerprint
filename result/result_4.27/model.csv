@@ -184,3 +184,14 @@ unsloth/Qwen2.5-1.5B-Instruct
 unsloth/Qwen2.5-Math-1.5B
 Qwen/Qwen2.5-Coder-0.5B
 google/gemma-2-2b
+unsloth/Qwen2.5-0.5B-Instruct-bnb-4bit
+unsloth/Qwen2.5-1.5B-unsloth-bnb-4bit
+unsloth/Qwen2.5-1.5B-Instruct-bnb-4bit
+unsloth/Qwen2.5-1.5B-Instruct-unsloth-bnb-4bit
+unsloth/Qwen2.5-Math-1.5B-bnb-4bit
+unsloth/Llama-3.2-1B-Instruct-unsloth-bnb-4bit
+unsloth/Llama-3.2-1B-Instruct-bnb-4bit
+unsloth/Llama-3.2-3B-Instruct-bnb-4bit
+unsloth/Llama-3.2-3B-Instruct-unsloth-bnb-4bit
+unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit
+unsloth/Meta-Llama-3.1-8B-Instruct-unsloth-bnb-4bit
