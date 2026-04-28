@@ -1,7 +1,7 @@
 {
   "metadata": {
     "total_models": 196,
-    "total_clusters": 86,
+    "total_clusters": 85,
     "total_edges": 115,
     "description": "Strict connected components from relationship CSV base_model edges; parents outside the current model set are retained as metadata only.",
     "source_csv": "/Users/kenzieluo/Desktop/columbia/course/model_lineage/llm_fingerprint/result/result_4.27/Evaluation Dataset 1 - Sheet2-2.csv",
@@ -69,12 +69,12 @@
     },
     {
       "cluster_id": 3,
-      "size": 15,
-      "num_edges": 14,
+      "size": 17,
+      "num_edges": 16,
       "root_models": [
         "meta-llama/Llama-3.1-8B"
       ],
-      "max_depth": 2,
+      "max_depth": 3,
       "models": [
         "NousResearch/Hermes-3-Llama-3.1-8B",
         "aisingapore/Llama-SEA-LION-v3-8B",
@@ -90,7 +90,9 @@
         "nvidia/Llama-3.1-8B-Instruct-FP8",
         "nvidia/OpenMath2-Llama3.1-8B",
         "unsloth/Llama-3.1-8B",
-        "unsloth/Meta-Llama-3.1-8B-Instruct"
+        "unsloth/Meta-Llama-3.1-8B-Instruct",
+        "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
+        "unsloth/Meta-Llama-3.1-8B-Instruct-unsloth-bnb-4bit"
       ],
       "family": "Llama-3.1-8B"
     },
@@ -449,18 +451,6 @@
     },
     {
       "cluster_id": 26,
-      "size": 2,
-      "num_edges": 2,
-      "root_models": [],
-      "max_depth": 1,
-      "models": [
-        "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
-        "unsloth/Meta-Llama-3.1-8B-Instruct-unsloth-bnb-4bit"
-      ],
-      "family": "Meta-Llama-3.1-8B-Instruct-bnb-4bit"
-    },
-    {
-      "cluster_id": 27,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -473,7 +463,7 @@
       "family": "Yi-6B"
     },
     {
-      "cluster_id": 28,
+      "cluster_id": 27,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -486,7 +476,7 @@
       "family": "Yi-6B-200K"
     },
     {
-      "cluster_id": 29,
+      "cluster_id": 28,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -499,7 +489,7 @@
       "family": "Yi-6B-Chat"
     },
     {
-      "cluster_id": 30,
+      "cluster_id": 29,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -512,7 +502,7 @@
       "family": "medicine-LLM"
     },
     {
-      "cluster_id": 31,
+      "cluster_id": 30,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -525,7 +515,7 @@
       "family": "ANIMA-Nectar-v2"
     },
     {
-      "cluster_id": 32,
+      "cluster_id": 31,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -538,7 +528,7 @@
       "family": "deepseek-tiny-v0.1"
     },
     {
-      "cluster_id": 33,
+      "cluster_id": 32,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -551,7 +541,7 @@
       "family": "Qwen3-Horror-Instruct-Uncensored-262K-ctx-4B"
     },
     {
-      "cluster_id": 34,
+      "cluster_id": 33,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -564,7 +554,7 @@
       "family": "gpt-neo-1.3B"
     },
     {
-      "cluster_id": 35,
+      "cluster_id": 34,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -577,7 +567,7 @@
       "family": "polyglot-ko-3.8b"
     },
     {
-      "cluster_id": 36,
+      "cluster_id": 35,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -590,7 +580,7 @@
       "family": "pythia-1.4b"
     },
     {
-      "cluster_id": 37,
+      "cluster_id": 36,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -603,7 +593,7 @@
       "family": "pythia-1b"
     },
     {
-      "cluster_id": 38,
+      "cluster_id": 37,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -616,7 +606,7 @@
       "family": "pythia-2.8b"
     },
     {
-      "cluster_id": 39,
+      "cluster_id": 38,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -629,7 +619,7 @@
       "family": "pythia-6.9b"
     },
     {
-      "cluster_id": 40,
+      "cluster_id": 39,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -642,7 +632,7 @@
       "family": "vicuna-7B-chemical"
     },
     {
-      "cluster_id": 41,
+      "cluster_id": 40,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -655,7 +645,7 @@
       "family": "vicuna-7B-physics"
     },
     {
-      "cluster_id": 42,
+      "cluster_id": 41,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -668,7 +658,7 @@
       "family": "SmolLM-135M"
     },
     {
-      "cluster_id": 43,
+      "cluster_id": 42,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -681,7 +671,7 @@
       "family": "SmolLM2-135M"
     },
     {
-      "cluster_id": 44,
+      "cluster_id": 43,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -694,7 +684,7 @@
       "family": "GPT-Neo-2.7B-Horni-LN"
     },
     {
-      "cluster_id": 45,
+      "cluster_id": 44,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -707,7 +697,7 @@
       "family": "EXAONE-4.0-1.2B"
     },
     {
-      "cluster_id": 46,
+      "cluster_id": 45,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -720,7 +710,7 @@
       "family": "LFM2-1.2B"
     },
     {
-      "cluster_id": 47,
+      "cluster_id": 46,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -733,7 +723,7 @@
       "family": "LFM2-350M"
     },
     {
-      "cluster_id": 48,
+      "cluster_id": 47,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -746,7 +736,7 @@
       "family": "Starling-LM-7B-beta"
     },
     {
-      "cluster_id": 49,
+      "cluster_id": 48,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -759,7 +749,7 @@
       "family": "PolyCoder-2.7B"
     },
     {
-      "cluster_id": 50,
+      "cluster_id": 49,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -772,7 +762,7 @@
       "family": "BioMedGPT-LM-7B"
     },
     {
-      "cluster_id": 51,
+      "cluster_id": 50,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -785,7 +775,7 @@
       "family": "pygmalion-2.7b"
     },
     {
-      "cluster_id": 52,
+      "cluster_id": 51,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -798,7 +788,7 @@
       "family": "Qwen1.5-0.5B-Chat"
     },
     {
-      "cluster_id": 53,
+      "cluster_id": 52,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -811,7 +801,7 @@
       "family": "Qwen1.5-4B-Chat"
     },
     {
-      "cluster_id": 54,
+      "cluster_id": 53,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -824,7 +814,7 @@
       "family": "Neeto-1.0-8b"
     },
     {
-      "cluster_id": 55,
+      "cluster_id": 54,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -837,7 +827,7 @@
       "family": "SciPhi-Mistral-7B-32k"
     },
     {
-      "cluster_id": 56,
+      "cluster_id": 55,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -850,7 +840,7 @@
       "family": "SciPhi-Self-RAG-Mistral-7B-32k"
     },
     {
-      "cluster_id": 57,
+      "cluster_id": 56,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -863,7 +853,7 @@
       "family": "Bootstrap-LLM"
     },
     {
-      "cluster_id": 58,
+      "cluster_id": 57,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -876,7 +866,7 @@
       "family": "TinyLlama-1.1B-Chat-v0.5"
     },
     {
-      "cluster_id": 59,
+      "cluster_id": 58,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -889,7 +879,7 @@
       "family": "TinyLlama-1.1B-Chat-v1.0"
     },
     {
-      "cluster_id": 60,
+      "cluster_id": 59,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -902,7 +892,7 @@
       "family": "TinyLlama-1.1B-intermediate-step-1431k-3T"
     },
     {
-      "cluster_id": 61,
+      "cluster_id": 60,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -915,7 +905,7 @@
       "family": "TinyLlama_v1.1"
     },
     {
-      "cluster_id": 62,
+      "cluster_id": 61,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -928,7 +918,7 @@
       "family": "TinyLlama_v1.1_math_code"
     },
     {
-      "cluster_id": 63,
+      "cluster_id": 62,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -941,7 +931,7 @@
       "family": "OLMoE-1B-7B-0924"
     },
     {
-      "cluster_id": 64,
+      "cluster_id": 63,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -954,7 +944,7 @@
       "family": "Llama-3.1-SuperNova-Lite"
     },
     {
-      "cluster_id": 65,
+      "cluster_id": 64,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -967,7 +957,7 @@
       "family": "shisa-base-7b-v1"
     },
     {
-      "cluster_id": 66,
+      "cluster_id": 65,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -980,7 +970,7 @@
       "family": "jaskier-7b-dpo-v5.6"
     },
     {
-      "cluster_id": 67,
+      "cluster_id": 66,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -993,7 +983,7 @@
       "family": "Starling-LM-7B-alpha"
     },
     {
-      "cluster_id": 68,
+      "cluster_id": 67,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -1006,7 +996,7 @@
       "family": "Luna"
     },
     {
-      "cluster_id": 69,
+      "cluster_id": 68,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -1019,7 +1009,7 @@
       "family": "starcoder2-3b"
     },
     {
-      "cluster_id": 70,
+      "cluster_id": 69,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -1032,7 +1022,7 @@
       "family": "bloom-560m"
     },
     {
-      "cluster_id": 71,
+      "cluster_id": 70,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -1045,7 +1035,7 @@
       "family": "bloomz-1b1"
     },
     {
-      "cluster_id": 72,
+      "cluster_id": 71,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -1058,7 +1048,7 @@
       "family": "bloomz-1b7"
     },
     {
-      "cluster_id": 73,
+      "cluster_id": 72,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -1071,7 +1061,7 @@
       "family": "bloomz-560m"
     },
     {
-      "cluster_id": 74,
+      "cluster_id": 73,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -1084,7 +1074,7 @@
       "family": "DeepSeek-R1-Distill-Llama-8B"
     },
     {
-      "cluster_id": 75,
+      "cluster_id": 74,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -1097,7 +1087,7 @@
       "family": "DeepSeek-R1-Distill-Qwen-1.5B"
     },
     {
-      "cluster_id": 76,
+      "cluster_id": 75,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -1110,7 +1100,7 @@
       "family": "DeepSeek-R1-Distill-Qwen-7B"
     },
     {
-      "cluster_id": 77,
+      "cluster_id": 76,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -1123,7 +1113,7 @@
       "family": "deepseek-coder-1.3b-base"
     },
     {
-      "cluster_id": 78,
+      "cluster_id": 77,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -1136,7 +1126,7 @@
       "family": "dictalm2.0"
     },
     {
-      "cluster_id": 79,
+      "cluster_id": 78,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -1149,7 +1139,7 @@
       "family": "Llama-3-ELYZA-JP-8B"
     },
     {
-      "cluster_id": 80,
+      "cluster_id": 79,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -1162,7 +1152,7 @@
       "family": "ogno-monarch-jaskier-merge-7b-OH-PREF-DPO"
     },
     {
-      "cluster_id": 81,
+      "cluster_id": 80,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -1175,7 +1165,7 @@
       "family": "gemma-2b-it"
     },
     {
-      "cluster_id": 82,
+      "cluster_id": 81,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -1188,7 +1178,7 @@
       "family": "Llama-3-8B-Instruct-262k"
     },
     {
-      "cluster_id": 83,
+      "cluster_id": 82,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -1201,7 +1191,7 @@
       "family": "llamaRAGdrama"
     },
     {
-      "cluster_id": 84,
+      "cluster_id": 83,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -1214,7 +1204,7 @@
       "family": "vicuna-7b-v1.1"
     },
     {
-      "cluster_id": 85,
+      "cluster_id": 84,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -1227,7 +1217,7 @@
       "family": "vicuna-7b-v1.5"
     },
     {
-      "cluster_id": 86,
+      "cluster_id": 85,
       "size": 1,
       "num_edges": 0,
       "root_models": [
@@ -3475,7 +3465,7 @@
       "root_model": "meta-llama/Llama-3.1-8B",
       "is_root": false,
       "depth": 1,
-      "num_children": 3,
+      "num_children": 4,
       "outlier_count": null,
       "base_model_from_dataset": "meta-llama/Llama-3.1-8B",
       "relationship_type": "finetune"
@@ -3933,25 +3923,25 @@
       "model_name": "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
       "model_short_name": "Meta-Llama-3.1-8B-Instruct-bnb-4bit",
       "organization": "unsloth",
-      "family": "Meta-Llama-3.1-8B-Instruct-bnb-4bit",
-      "direct_parent": "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
-      "root_model": null,
+      "family": "Llama-3.1-8B",
+      "direct_parent": "meta-llama/Llama-3.1-8B-Instruct",
+      "root_model": "meta-llama/Llama-3.1-8B",
       "is_root": false,
-      "depth": 1,
-      "num_children": 2,
+      "depth": 2,
+      "num_children": 1,
       "outlier_count": null,
-      "base_model_from_dataset": "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
+      "base_model_from_dataset": "meta-llama/Llama-3.1-8B-Instruct",
       "relationship_type": "quantized"
     },
     {
       "model_name": "unsloth/Meta-Llama-3.1-8B-Instruct-unsloth-bnb-4bit",
       "model_short_name": "Meta-Llama-3.1-8B-Instruct-unsloth-bnb-4bit",
       "organization": "unsloth",
-      "family": "Meta-Llama-3.1-8B-Instruct-bnb-4bit",
+      "family": "Llama-3.1-8B",
       "direct_parent": "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
-      "root_model": null,
+      "root_model": "meta-llama/Llama-3.1-8B",
       "is_root": false,
-      "depth": 1,
+      "depth": 3,
       "num_children": 0,
       "outlier_count": null,
       "base_model_from_dataset": "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",

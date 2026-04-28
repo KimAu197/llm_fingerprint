@@ -1,0 +1,53 @@
+Tukey fence eval — base model coverage in outlier set
+Source: tukey_fence_eval.csv
+
+Column meanings (from the pipeline)
+- base_in_testset: "yes" only if every declared base model from lineage appears in the evaluation model list; "no" if there is no base, or any base is missing from the dataset.
+- base_in_outliers: "yes" if at least one declared base has fingerprint score above the Tukey upper fence (same rule as the outlier list); "no" otherwise.
+
+Hit-rate metric
+Definition: Among rows where all bases are in the dataset, excluding cases where the focal model appears as its own listed base, what fraction have the true base(s) above the fence (base_in_outliers == yes)?
+
+Counts
+- Total models: 196
+- base_in_testset == yes (every declared base is in the eval set): 106
+- base_in_testset == no: 90
+  - No base_model annotation (empty): 89
+  - Has base(s) but not all are in the eval set: 1 (arcee-ai/Llama-3.1-SuperNova-Lite)
+
+Eligible for hit rate: 106
+- base_in_outliers == yes: 97
+- base_in_outliers == no: 9
+
+Hit rate (base in outlier set | eligible): 0.915094 (97/106)
+
+Models eligible but base NOT in outlier set (9):
+  - Qwen/Qwen2.5-Coder-0.5B-Instruct
+  - Qwen/Qwen2.5-Math-1.5B
+  - Qwen/Qwen2.5-Math-7B
+  - Qwen/Qwen2.5-Math-7B-Instruct
+  - Qwen/Qwen3-1.7B
+  - Qwen/Qwen3-4B
+  - Writer/palmyra-mini
+  - google/gemma-3-1b-it
+  - nvidia/Llama-3.1-8B-Instruct-FP8
+
+--------------------------------------------------------------------------------
+Tukey outlier vs lineage labels — precision / recall (from final_output slims)
+Source files: tukey_outliers_strict_precision_recall.csv, tukey_outliers_loose_precision_recall.csv
+
+What empty cells mean
+- precision empty: no Tukey outlier list for that anchor (n_outliers = 0), so precision is undefined.
+- recall empty: no gold items in the eval universe for that metric, so recall is undefined.
+  - Strict: no parent/child neighbor in universe (n_strict_related_in_universe = 0). This is "isolated" in the strict graph for this eval set.
+  - Loose: no other model from the same loose cluster in universe (e.g. singleton cluster, or peers missing from the matrix).
+
+Macro mean (mean of per-model numbers only; rows with empty precision or empty recall are omitted from that average)
+
+Strict (196 models)
+- Precision: 187 defined, 9 empty -> macro mean = 0.112496
+- Recall: 136 defined, 60 empty -> macro mean = 0.912920
+
+Loose (196 models)
+- Precision: 187 defined, 9 empty -> macro mean = 0.608859
+- Recall: 179 defined, 17 empty -> macro mean = 0.573742
