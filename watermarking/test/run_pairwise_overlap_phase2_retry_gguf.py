@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 import traceback
@@ -85,6 +86,34 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--no_cuda_device_reset_on_error", action="store_true")
     p.add_argument("--cuda_device_reset_after_oom", action="store_true")
     p.add_argument("--hf_token", type=str, default=None)
+    p.add_argument(
+        "--include_gguf_filename_regex",
+        type=str,
+        default=None,
+        help="Only keep GGUF rows whose filename/path matches this regex",
+    )
+    p.add_argument(
+        "--exclude_gguf_filename_regex",
+        type=str,
+        default=None,
+        help="Drop GGUF rows whose filename/path matches this regex, e.g. 'BF16|F16'",
+    )
+    p.add_argument(
+        "--max_targets",
+        type=int,
+        default=None,
+        help="Keep only the first N GGUF rows after include/exclude filters",
+    )
+    p.add_argument(
+        "--target_prompt_scope",
+        choices=("all", "target_only"),
+        default="all",
+        help=(
+            "all: compute GGUF target caches on every fingerprint prompt for symmetric cells. "
+            "target_only: much faster; compute only target fingerprint prompts and fill target rows, "
+            "leaving old-model -> GGUF target columns as -1."
+        ),
+    )
     return p.parse_args()
 
 
@@ -104,6 +133,38 @@ def _save_fingerprints(path: Path, all_fps: Dict[str, List[str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(all_fps, f, indent=2)
+
+
+def _filter_gguf_rows_for_cli(
+    rows: List[GgufModelRow], args: argparse.Namespace
+) -> List[GgufModelRow]:
+    out = list(rows)
+    include = getattr(args, "include_gguf_filename_regex", None)
+    exclude = getattr(args, "exclude_gguf_filename_regex", None)
+    if include:
+        inc_re = re.compile(include)
+        out = [row for row in out if inc_re.search(row.gguf_path)]
+    if exclude:
+        exc_re = re.compile(exclude)
+        out = [row for row in out if not exc_re.search(row.gguf_path)]
+    max_targets = getattr(args, "max_targets", None)
+    if max_targets is not None:
+        out = out[: int(max_targets)]
+    if not out:
+        raise SystemExit("No GGUF rows left after include/exclude/max_targets filters.")
+    print(f"[INFO] GGUF rows selected: {len(out)}/{len(rows)}")
+    return out
+
+
+def _prompts_for_scope(
+    models: List[str],
+    targets: List[str],
+    all_fps: Dict[str, List[str]],
+    args: argparse.Namespace,
+) -> List[str]:
+    if getattr(args, "target_prompt_scope", "all") == "target_only":
+        return _dedup_all_prompts(targets, all_fps)
+    return _dedup_all_prompts(models, all_fps)
 
 
 def ensure_gguf_fingerprints(
@@ -262,7 +323,7 @@ def run_append_gguf(
     targets = [row.name for row in target_rows]
     target_set = set(targets)
     row_by_name = {row.name: row for row in target_rows}
-    all_prompts = _dedup_all_prompts(models, all_fps)
+    all_prompts = _prompts_for_scope(models, targets, all_fps, args)
     target_idx = {target: models.index(target) for target in targets}
 
     print("\n" + "=" * 70)
@@ -270,6 +331,12 @@ def run_append_gguf(
     print("=" * 70)
     print(f"[INFO] Unique prompts: {len(all_prompts)}")
     print(f"[INFO] GGUF targets:   {len(targets)}")
+    print(f"[INFO] Prompt scope:    {args.target_prompt_scope}")
+    if args.target_prompt_scope == "target_only":
+        print(
+            "[WARNING] target_only mode fills GGUF target rows only; "
+            "old-model -> GGUF target columns remain -1."
+        )
 
     matrix = load_overlap_matrix_from_path(
         Path(args.existing_overlap_matrix),
@@ -316,9 +383,10 @@ def run_append_gguf(
                 matrix[it, ij] = _matrix_cell_mi_mj(
                     target, model_id, all_fps, pinned[target], cache_j
                 )
-                matrix[ij, it] = _matrix_cell_mi_mj(
-                    model_id, target, all_fps, cache_j, pinned[target]
-                )
+                if args.target_prompt_scope == "all":
+                    matrix[ij, it] = _matrix_cell_mi_mj(
+                        model_id, target, all_fps, cache_j, pinned[target]
+                    )
             save_matrix_artifacts(matrix, models, output_dir, sync=True)
             with open(output_dir / PHASE2_PROGRESS_NAME, "w", encoding="utf-8") as f:
                 json.dump(
@@ -363,7 +431,10 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     setup_run_logging(output_dir)
 
-    gguf_rows = resolve_gguf_csv(args.csv_path, hf_token=args.hf_token)
+    gguf_rows = _filter_gguf_rows_for_cli(
+        resolve_gguf_csv(args.csv_path, hf_token=args.hf_token),
+        args,
+    )
     target_names = [row.name for row in gguf_rows]
     models = _models_with_existing_labeled_matrix_seed(
         csv_models=target_names,
