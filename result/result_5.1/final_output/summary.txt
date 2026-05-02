@@ -9,28 +9,36 @@ Hit-rate metric
 Definition: Among rows where all bases are in the dataset, excluding cases where the focal model appears as its own listed base, what fraction have the true base(s) above the fence (base_in_outliers == yes)?
 
 Counts
-- Total models: 196
-- base_in_testset == yes (every declared base is in the eval set): 106
+- Total models: 275
+- base_in_testset == yes (every declared base is in the eval set): 185
 - base_in_testset == no: 90
   - No base_model annotation (empty): 89
   - Has base(s) but not all are in the eval set: 1 (arcee-ai/Llama-3.1-SuperNova-Lite)
 
-Eligible for hit rate: 106
-- base_in_outliers == yes: 97
-- base_in_outliers == no: 9
+Eligible for hit rate: 185
+- base_in_outliers == yes: 168
+- base_in_outliers == no: 17
 
-Hit rate (base in outlier set | eligible): 0.915094 (97/106)
+Hit rate (base in outlier set | eligible): 0.908108 (168/185)
 
-Models eligible but base NOT in outlier set (9):
-  - Qwen/Qwen2.5-Coder-0.5B-Instruct
+Models eligible but base NOT in outlier set (17):
   - Qwen/Qwen2.5-Math-1.5B
   - Qwen/Qwen2.5-Math-7B
   - Qwen/Qwen2.5-Math-7B-Instruct
   - Qwen/Qwen3-1.7B
   - Qwen/Qwen3-4B
+  - SakanaAI/TinySwallow-1.5B
   - Writer/palmyra-mini
+  - allenai/llama-3.1-tulu-2-8b
+  - beruniy/Llama-3.2-3B-Instruct-Uz
   - google/gemma-3-1b-it
+  - llama32_1b_instruct_iq1_m
+  - llama32_1b_instruct_iq1_s
+  - llama32_1b_instruct_iq2_xxs
+  - llama32_3b_instruct_iq1_m
+  - meta-llama/Llama-Guard-3-8B
   - nvidia/Llama-3.1-8B-Instruct-FP8
+  - nvidia/OpenMath2-Llama3.1-8B
 
 --------------------------------------------------------------------------------
 Tukey outlier vs lineage labels — precision / recall (from final_output slims)
@@ -44,11 +52,11 @@ What empty cells mean
 
 Macro mean (mean of per-model numbers only; rows with empty precision or empty recall are omitted from that average)
 
-Strict (196 models)
-- Precision: 187 defined, 9 empty -> macro mean = 0.112496
-- Recall: 136 defined, 60 empty -> macro mean = 0.912920
+Strict (275 models)
+- Precision: 265 defined, 10 empty -> macro mean = 0.070990
+- Recall: 215 defined, 60 empty -> macro mean = 0.906770
 
-Loose (196 models)
-- Precision: 187 defined, 9 empty -> macro mean = 0.608859
-- Recall: 179 defined, 17 empty -> macro mean = 0.573742
+Loose (275 models)
+- Precision: 265 defined, 10 empty -> macro mean = 0.714054
+- Recall: 258 defined, 17 empty -> macro mean = 0.593630
 

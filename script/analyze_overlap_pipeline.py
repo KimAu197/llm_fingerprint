@@ -989,6 +989,212 @@ def write_json(path: Path, data: dict[str, Any]) -> None:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def _metric_csv_float(cell: Any) -> float | None:
+    if cell is None:
+        return None
+    text = str(cell).strip()
+    if text == "":
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def _format_slim_scalar(value: float) -> str:
+    rounded = round(float(value), 6)
+    text = f"{rounded:.6f}".rstrip("0").rstrip(".")
+    return text if text else "0"
+
+
+def write_final_output_bundle(out_dir: Path) -> dict[str, Any] | None:
+    """Write final_output/ slim CSVs and summary.txt (macro P/R exclude undefined cells)."""
+    fence_path = out_dir / "tukey_fence_eval.csv"
+    strict_path = out_dir / "tukey_outliers_strict_recall_precision.csv"
+    loose_path = out_dir / "tukey_outliers_loose_recall_precision.csv"
+    if not fence_path.is_file() or not strict_path.is_file() or not loose_path.is_file():
+        return None
+
+    final_dir = out_dir / "final_output"
+    final_dir.mkdir(parents=True, exist_ok=True)
+
+    with fence_path.open(newline="", encoding="utf-8-sig") as f:
+        fence_rows = list(csv.DictReader(f))
+
+    fence_out: list[dict[str, str]] = []
+    for row in fence_rows:
+        model = str(row.get("model", "")).strip()
+        bases = parse_parent_cell(row.get("base_model"))
+        hit_eligible = (
+            str(row.get("base_in_testset", "")).strip() == "yes" and model not in bases
+        )
+        fence_out.append(
+            {
+                "model": model,
+                "base_model": row.get("base_model", "") or "",
+                "base_in_testset": str(row.get("base_in_testset", "")).strip(),
+                "base_in_outliers": str(row.get("base_in_outliers", "")).strip(),
+                "hit_rate_eligible": "yes" if hit_eligible else "no",
+            }
+        )
+    write_dict_csv(
+        final_dir / "tukey_fence_base_testset_and_outliers.csv",
+        fence_out,
+        ["model", "base_model", "base_in_testset", "base_in_outliers", "hit_rate_eligible"],
+    )
+
+    def slim_metrics(
+        path: Path, prec_key: str, recall_key: str
+    ) -> tuple[list[dict[str, str]], list[float], list[float]]:
+        slim_rows: list[dict[str, str]] = []
+        precs: list[float] = []
+        recalls: list[float] = []
+        with path.open(newline="", encoding="utf-8-sig") as f:
+            for row in csv.DictReader(f):
+                model = str(row.get("model", "")).strip()
+                if model == "_SUMMARY_" or not model:
+                    continue
+                pv = _metric_csv_float(row.get(prec_key))
+                rv = _metric_csv_float(row.get(recall_key))
+                slim_rows.append(
+                    {
+                        "model": model,
+                        "precision": "" if pv is None else _format_slim_scalar(pv),
+                        "recall": "" if rv is None else _format_slim_scalar(rv),
+                    }
+                )
+                if pv is not None:
+                    precs.append(pv)
+                if rv is not None:
+                    recalls.append(rv)
+        return slim_rows, precs, recalls
+
+    strict_slim, strict_p_vals, strict_r_vals = slim_metrics(
+        strict_path,
+        "precision_outliers_vs_strict",
+        "recall_strict_in_universe_captured",
+    )
+    loose_slim, loose_p_vals, loose_r_vals = slim_metrics(
+        loose_path,
+        "precision_outliers_vs_loose",
+        "recall_loose_in_universe_captured",
+    )
+
+    write_dict_csv(
+        final_dir / "tukey_outliers_strict_precision_recall.csv",
+        strict_slim,
+        ["model", "precision", "recall"],
+    )
+    write_dict_csv(
+        final_dir / "tukey_outliers_loose_precision_recall.csv",
+        loose_slim,
+        ["model", "precision", "recall"],
+    )
+
+    n_total = len(fence_rows)
+    yes_testset = sum(1 for r in fence_rows if str(r.get("base_in_testset")).strip() == "yes")
+    no_testset = n_total - yes_testset
+    no_empty_base = sum(
+        1
+        for r in fence_rows
+        if str(r.get("base_in_testset")).strip() == "no"
+        and not str(r.get("base_model") or "").strip()
+    )
+    partial_rows = [
+        r
+        for r in fence_rows
+        if str(r.get("base_in_testset")).strip() == "no" and str(r.get("base_model") or "").strip()
+    ]
+    no_partial = len(partial_rows)
+    partial_note = ""
+    if no_partial == 1:
+        pr = partial_rows[0]
+        partial_note = f" ({pr['model']})"
+    elif no_partial > 1:
+        names = ", ".join(sorted(str(r['model']) for r in partial_rows))
+        partial_note = f" ({names})"
+
+    elig_rows = [r for r in fence_out if r["hit_rate_eligible"] == "yes"]
+    n_elig = len(elig_rows)
+    n_elig_hit = sum(1 for r in elig_rows if r["base_in_outliers"] == "yes")
+    n_elig_miss = n_elig - n_elig_hit
+    hit_rate = n_elig_hit / n_elig if n_elig else float("nan")
+    miss_models = sorted(r["model"] for r in elig_rows if r["base_in_outliers"] != "yes")
+
+    n_models_pr = len(strict_slim)
+    strict_p_def, strict_r_def = len(strict_p_vals), len(strict_r_vals)
+    loose_p_def, loose_r_def = len(loose_p_vals), len(loose_r_vals)
+    macro_sp = sum(strict_p_vals) / strict_p_def if strict_p_def else float("nan")
+    macro_sr = sum(strict_r_vals) / strict_r_def if strict_r_def else float("nan")
+    macro_lp = sum(loose_p_vals) / loose_p_def if loose_p_def else float("nan")
+    macro_lr = sum(loose_r_vals) / loose_r_def if loose_r_def else float("nan")
+
+    lines = [
+        "Tukey fence eval — base model coverage in outlier set",
+        "Source: tukey_fence_eval.csv",
+        "",
+        "Column meanings (from the pipeline)",
+        '- base_in_testset: "yes" only if every declared base model from lineage appears in the evaluation model list; "no" if there is no base, or any base is missing from the dataset.',
+        '- base_in_outliers: "yes" if at least one declared base has fingerprint score above the Tukey upper fence (same rule as the outlier list); "no" otherwise.',
+        "",
+        "Hit-rate metric",
+        "Definition: Among rows where all bases are in the dataset, excluding cases where the focal model appears as its own listed base, what fraction have the true base(s) above the fence (base_in_outliers == yes)?",
+        "",
+        "Counts",
+        f"- Total models: {n_total}",
+        f"- base_in_testset == yes (every declared base is in the eval set): {yes_testset}",
+        f"- base_in_testset == no: {no_testset}",
+        f"  - No base_model annotation (empty): {no_empty_base}",
+        f"  - Has base(s) but not all are in the eval set: {no_partial}{partial_note}",
+        "",
+        f"Eligible for hit rate: {n_elig}",
+        f"- base_in_outliers == yes: {n_elig_hit}",
+        f"- base_in_outliers == no: {n_elig_miss}",
+        "",
+        f"Hit rate (base in outlier set | eligible): {hit_rate:.6f} ({n_elig_hit}/{n_elig})",
+        "",
+        f"Models eligible but base NOT in outlier set ({len(miss_models)}):",
+    ]
+    for name in miss_models:
+        lines.append(f"  - {name}")
+
+    lines.extend(
+        [
+            "",
+            "-" * 80,
+            "Tukey outlier vs lineage labels — precision / recall (from final_output slims)",
+            "Source files: tukey_outliers_strict_precision_recall.csv, tukey_outliers_loose_precision_recall.csv",
+            "",
+            "What empty cells mean",
+            "- precision empty: no Tukey outlier list for that anchor (n_outliers = 0), so precision is undefined.",
+            "- recall empty: no gold items in the eval universe for that metric, so recall is undefined.",
+            '  - Strict: no parent/child neighbor in universe (n_strict_related_in_universe = 0). This is "isolated" in the strict graph for this eval set.',
+            "  - Loose: no other model from the same loose cluster in universe (e.g. singleton cluster, or peers missing from the matrix).",
+            "",
+            "Macro mean (mean of per-model numbers only; rows with empty precision or empty recall are omitted from that average)",
+            "",
+            f"Strict ({n_models_pr} models)",
+            f"- Precision: {strict_p_def} defined, {n_models_pr - strict_p_def} empty -> macro mean = {macro_sp:.6f}",
+            f"- Recall: {strict_r_def} defined, {n_models_pr - strict_r_def} empty -> macro mean = {macro_sr:.6f}",
+            "",
+            f"Loose ({n_models_pr} models)",
+            f"- Precision: {loose_p_def} defined, {n_models_pr - loose_p_def} empty -> macro mean = {macro_lp:.6f}",
+            f"- Recall: {loose_r_def} defined, {n_models_pr - loose_r_def} empty -> macro mean = {macro_lr:.6f}",
+            "",
+        ]
+    )
+
+    summary_path = final_dir / "summary.txt"
+    summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return {
+        "final_dir": final_dir,
+        "macro_strict_precision": macro_sp,
+        "macro_strict_recall": macro_sr,
+        "macro_loose_precision": macro_lp,
+        "macro_loose_recall": macro_lr,
+    }
+
+
 def abbrev_label(model_id: str, max_len: int = 14) -> str:
     label = model_id.split("/")[-1] if "/" in model_id else model_id
     label = label.replace("Instruct", "Ins").replace("instruct", "ins")
@@ -1293,6 +1499,17 @@ def run_pipeline(args: argparse.Namespace) -> None:
     print(f"Tukey outlier pairs: {len(long_rows)}")
     print(f"Strict micro precision/recall: {strict_precision:.6f} / {strict_recall:.6f}")
     print(f"Loose micro precision/recall: {loose_precision:.6f} / {loose_recall:.6f}")
+    fin = write_final_output_bundle(out_dir)
+    if fin:
+        print(f"Wrote final_output to {fin['final_dir']}")
+        print(
+            "Macro strict precision/recall (defined rows only): "
+            f"{fin['macro_strict_precision']:.6f} / {fin['macro_strict_recall']:.6f}"
+        )
+        print(
+            "Macro loose precision/recall (defined rows only): "
+            f"{fin['macro_loose_precision']:.6f} / {fin['macro_loose_recall']:.6f}"
+        )
     if not args.skip_plots:
         print(f"Wrote {out_dir / 'strict_lineage_trees_clean.pdf'}")
         print(f"Wrote {out_dir / 'strict_lineage_trees_clean.png'}")
